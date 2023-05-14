@@ -8,16 +8,16 @@ const map = new mapboxgl.Map({
 });
 
 map.on('load', () => {
-  map.addSource('maine', {
+  map.addSource('glpaths', {
     'type': 'geojson',
     'data': "data/geo.json"
   });
 
   // Add a black outline around the polygon.
   map.addLayer({
-    'id': 'outline',
+    'id': 'glpath_outline',
     'type': 'line',
-    'source': 'maine',
+    'source': 'glpaths',
     'layout': {},
     'paint': {
       'line-color': '#000',
@@ -31,6 +31,7 @@ map.on('load', () => {
   map.addControl(new mapboxgl.ScaleControl());
   // Add zoom and rotation controls to the map.
   map.addControl(new mapboxgl.NavigationControl());
+
   //for feature debug
   map.on('mousemove', (e) => {
     document.getElementById('info').innerHTML =
@@ -55,10 +56,14 @@ map.on('load', () => {
     ];
 
     const displayFeatures = features.map((feat) => {
+
       const displayFeat = {};
       displayProperties.forEach((prop) => {
         displayFeat[prop] = feat['properties'][prop];
       });
+      if('name' in feat['properties']){
+        displayFeat['name']=feat['properties']['name'];
+      }
       return displayFeat;
     });
 
@@ -70,6 +75,59 @@ map.on('load', () => {
     );
   });
 
+});
+
+//DEBUG of location estimation
+map.on('load', () => {
+  map.addSource('bases_lines', {
+    'type': 'geojson',
+    'data': "data/bases_lines.json"
+  });
+
+  map.addLayer({
+    'id': 'bases_lines',
+    'type': 'line',
+    'source': 'bases_lines',
+    'layout': {},
+    'paint': {
+      'line-color': 'yellow',
+      'line-width': 2,
+      'line-opacity':0.5
+    }
+  });
+
+  map.addSource('bases_est', {
+    'type': 'geojson',
+    'data': "data/bases_est.json"
+  });
+
+  map.addLayer({
+    'id': 'bases_est',
+    'type': 'circle',
+    'source': 'bases_est',
+    'paint': {
+      'circle-radius': 4,
+      'circle-stroke-width': 2,
+      'circle-color': 'green',
+      'circle-stroke-color': 'white'
+    }
+  });
+
+  map.addSource('bases_real', {
+    'type': 'geojson',
+    'data': "data/bases_real.json"
+  });
+  map.addLayer({
+    'id': 'bases_real',
+    'type': 'circle',
+    'source': 'bases_real',
+    'paint': {
+      'circle-radius': 4,
+      'circle-stroke-width': 2,
+      'circle-color': 'orange',
+      'circle-stroke-color': 'white'
+    }
+  });
 });
 
 class Puppet{
@@ -141,7 +199,6 @@ class Puppet{
       let coords = this.#feature.geometry.coordinates;
       let elongated_coords = [];
       let from = coords[0];
-      let current_segment_size = 0;
 
       for(let k =1; k< coords.length; k++){
         let to = coords[k];
