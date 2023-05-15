@@ -12,36 +12,6 @@ body { margin: 0; padding: 0; }
 
 #map { position: absolute; top: 0; bottom: 0; width: 100%; }
 
-#info {
-  display: table;
-  position: relative;
-  margin: 0px auto;
-  word-wrap: anywhere;
-  white-space: pre-wrap;
-  padding: 10px;
-  border: none;
-  border-radius: 3px;
-  font-size: 12px;
-  text-align: center;
-  color: #222;
-  background: #fff;
-}
-
-#features {
-  position: absolute;
-  top: 40%;
-  right: 0;
-  bottom: 0;
-  width: 35%;
-  font-size: 14px;
-  overflow: auto;
-  background: rgba(255, 255, 255, 0.8);
-}
-
-#map canvas {
-  cursor: crosshair;
-}
-
 .mapboxgl-popup {
   max-width: 400px;
   font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
@@ -63,6 +33,77 @@ button {
 #restart {
   top: 40px;
 }
+
+/*Start DEBUG styles*/
+
+#debug {
+  top: 80px;
+}
+
+#debug::after {
+  content: 'No Debug';
+}
+
+#debug.nodebug::after {
+  content: 'Debug';
+}
+
+.distance-container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+}
+
+.distance-container > * {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  display: block;
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+#position-info {
+  display: table;
+  position: relative;
+  margin: 0px auto;
+  word-wrap: anywhere;
+  white-space: pre-wrap;
+  padding: 10px;
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  text-align: center;
+  color: #222;
+  background: #fff;
+}
+
+#position-info.hidden::after {
+  visibility: hidden;
+}
+
+#features {
+  position: absolute;
+  top: 40%;
+  right: 0;
+  bottom: 0;
+  width: 35%;
+  font-size: 14px;
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+#features.hidden::after{
+  visibility: hidden;
+}
+
+/*#map canvas {*/
+/*  cursor: crosshair;*/
+/*}*/
+/*End DEBUG styles*/
 /* End animation/map CSS properties*/
 
 /* ==========================================================================

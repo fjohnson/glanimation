@@ -32,9 +32,89 @@ map.on('load', () => {
   // Add zoom and rotation controls to the map.
   map.addControl(new mapboxgl.NavigationControl());
 
-  //for feature debug
-  map.on('mousemove', (e) => {
-    document.getElementById('info').innerHTML =
+
+});
+
+//DEBUG of location estimation
+map.on('load', () => {
+
+  const debugButton = document.getElementById('debug');
+  const positionInfo = document.getElementById('position-info');
+  const featureInfoPane = document.getElementById('features');
+  const distanceContainer = document.getElementById('distance');
+
+  const featureNames = ['bases_lines', 'bases_est', 'bases_real']
+
+  // Distance debugging definitions
+  // GeoJSON object to hold our measurement features
+  const geojson = {
+    'type': 'FeatureCollection',
+    'features': []
+  };
+
+  // Used to draw a line between points
+  const linestring = {
+    'type': 'Feature',
+    'geometry': {
+      'type': 'LineString',
+      'coordinates': []
+    }
+  };
+
+  function measurePoints(e){
+    const features = map.queryRenderedFeatures(e.point, {
+      layers: ['measure-points']
+    });
+
+    // Remove the linestring from the group
+    // so we can redraw it based on the points collection.
+    if (geojson.features.length > 1) geojson.features.pop();
+
+    // Clear the distance container to populate it with a new value.
+    distanceContainer.innerHTML = '';
+
+    // If a feature was clicked, remove it from the map.
+    if (features.length) {
+      const id = features[0].properties.id;
+      geojson.features = geojson.features.filter(
+        (point) => point.properties.id !== id
+      );
+    } else {
+      const point = {
+        'type': 'Feature',
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [e.lngLat.lng, e.lngLat.lat]
+        },
+        'properties': {
+          'id': String(new Date().getTime())
+        }
+      };
+
+      geojson.features.push(point);
+    }
+
+    if (geojson.features.length > 1) {
+      linestring.geometry.coordinates = geojson.features.map(
+        (point) => point.geometry.coordinates
+      );
+
+      geojson.features.push(linestring);
+
+      // Populate the distanceContainer with total distance
+      const value = document.createElement('pre');
+      const distance = turf.length(linestring);
+      value.textContent = `Total distance: ${distance.toLocaleString()}km`;
+      distanceContainer.appendChild(value);
+    }
+
+    map.getSource('geojson').setData(geojson);
+  }
+  //End distance debugging definitions
+
+  //Feature debugging
+  function featureDebug(e){
+    document.getElementById('position-info').innerHTML =
       // `e.point` is the x, y coordinates of the `mousemove` event
       // relative to the top-left corner of the map.
       JSON.stringify(e.point) +
@@ -43,10 +123,8 @@ map.on('load', () => {
       JSON.stringify(e.lngLat.wrap());
 
     //feature debug code here:
-    const features = map.queryRenderedFeatures(e.point);
+    const features = map.queryRenderedFeatures(e.point, {'layers':['bases_est', 'bases_real', 'glpath_outline']});
 
-    // Limit the number of properties we're displaying for
-    // legibility and performance
     const displayProperties = [
       "anode",
       "bnode",
@@ -73,59 +151,103 @@ map.on('load', () => {
       null,
       2
     );
-  });
+  }
 
-});
+  debugButton.addEventListener('click', ()=>{
+    debugButton.classList.toggle('nodebug');
+    featureInfoPane.classList.toggle('hidden');
+    positionInfo.classList.toggle('hidden');
 
-//DEBUG of location estimation
-map.on('load', () => {
-  map.addSource('bases_lines', {
-    'type': 'geojson',
-    'data': "data/bases_lines.json"
-  });
-
-  map.addLayer({
-    'id': 'bases_lines',
-    'type': 'line',
-    'source': 'bases_lines',
-    'layout': {},
-    'paint': {
-      'line-color': 'yellow',
-      'line-width': 2,
-      'line-opacity':0.5
+    //Load debugging json files when debug is clicked for the first time
+    for (let featName of featureNames.values()){
+      if(map.getSource(`${featName}`) === undefined){
+        map.addSource(`${featName}`, {
+          'type': 'geojson',
+          'data': `data/${featName}.json`
+        });
+      }
     }
-  });
 
-  map.addSource('bases_est', {
-    'type': 'geojson',
-    'data': "data/bases_est.json"
-  });
-
-  map.addLayer({
-    'id': 'bases_est',
-    'type': 'circle',
-    'source': 'bases_est',
-    'paint': {
-      'circle-radius': 4,
-      'circle-stroke-width': 2,
-      'circle-color': 'green',
-      'circle-stroke-color': 'white'
+    if(map.getSource('distance-geojson') === undefined){
+      map.addSource('distance-geojson', {
+        'type': 'geojson',
+        'data': geojson
+      });
     }
-  });
 
-  map.addSource('bases_real', {
-    'type': 'geojson',
-    'data': "data/bases_real.json"
-  });
-  map.addLayer({
-    'id': 'bases_real',
-    'type': 'circle',
-    'source': 'bases_real',
-    'paint': {
-      'circle-radius': 4,
-      'circle-stroke-width': 2,
-      'circle-color': 'orange',
-      'circle-stroke-color': 'white'
+    //Debug off
+    if (debugButton.classList.contains('nodebug')) {
+      for(let featName of featureNames.values()){
+        map.removeLayer(featName);
+      }
+
+      map.removeLayer('measure-points');
+      map.removeLayer('measure-lines');
+      map.off('mousemove', featureDebug);
+      map.off('click', measurePoints);
+      map.on('mouseover', ()=>{ map.getCanvas().style.cursor = '';});
+    }
+
+    //Debug on
+    if (!debugButton.classList.contains('nodebug')) {
+      map.addLayer({
+        'id': 'bases_lines',
+        'type': 'line',
+        'source': 'bases_lines',
+        'layout': {},
+        'paint': {
+          'line-color': 'yellow',
+          'line-width': 2,
+          'line-opacity': 0.5}});
+      map.addLayer({
+        'id': 'bases_est',
+        'type': 'circle',
+        'source': 'bases_est',
+        'paint': {
+          'circle-radius': 4,
+          'circle-stroke-width': 2,
+          'circle-color': 'green',
+          'circle-stroke-color': 'white'}});
+      map.addLayer({
+        'id': 'bases_real',
+        'type': 'circle',
+        'source': 'bases_real',
+        'paint': {
+          'circle-radius': 4,
+          'circle-stroke-width': 2,
+          'circle-color': 'orange',
+          'circle-stroke-color': 'white'}});
+
+      // Distance measuring layers
+      map.addLayer({
+        id: 'measure-points',
+        type: 'circle',
+        source: 'distance-geojson',
+        paint: {
+          'circle-radius': 5,
+          'circle-color': '#000'
+        },
+        filter: ['in', '$type', 'Point']
+      });
+      map.addLayer({
+        id: 'measure-lines',
+        type: 'line',
+        source: 'distance-geojson',
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round'
+        },
+        paint: {
+          'line-color': '#000',
+          'line-width': 2.5
+        },
+        filter: ['in', '$type', 'LineString']
+      });
+      // End distance measuring layers
+
+      map.on('mousemove', featureDebug);
+      map.on('click', measurePoints);
+      map.on('mouseover', () => {map.getCanvas().style.cursor = 'crosshair';});
     }
   });
 });
