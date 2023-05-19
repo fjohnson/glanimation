@@ -7,7 +7,46 @@ const map = new mapboxgl.Map({
   zoom: 5 // starting zoom
 });
 
+const routeMap = {};
+function elongatePaths(feature, segmentSize = 10){
+  //A function for addition additional points along a precomputed shortest path from start->end
+  //This is used because the animation draws a point for each vessel every x milliseconds
+  //and by adding more points the animation not only becomes smoother, but it slows it down
+  //and prevents the vessels from looking like they are "teleporting".
+  //segment_size: additional points are added every segment_size KM
+
+  let coords = feature.geometry.coordinates;
+  let elongated_coords = [];
+  let from = coords[0];
+
+  for(let k =1; k< coords.length; k++){
+    let to = coords[k];
+    let distance = turf.distance(turf.point(from), turf.point(to));
+
+    if(distance > segmentSize){
+      let remaining_distance = distance;
+      while(remaining_distance >= segmentSize){
+        let line = turf.lineString([from, to]);
+        let point = turf.along(line, segmentSize);
+        elongated_coords.push(from);
+        from = point.geometry.coordinates;
+        remaining_distance -= segmentSize;
+      }
+    }
+    else if(distance === segmentSize){
+      if(k<coords.length) {
+        elongated_coords.push(from);
+        from = to;
+      }
+    }
+  }
+  elongated_coords.push(from);
+  elongated_coords.push(coords[coords.length-1]);
+  return {"type": "Feature", "geometry": {"type": "LineString", "coordinates": elongated_coords}};
+}
+
 map.on('load', () => {
+
   map.addSource('glpaths', {
     'type': 'geojson',
     'data': "data/geo.json"
@@ -43,7 +82,8 @@ map.on('load', () => {
   const featureInfoPane = document.getElementById('features');
   const distanceContainer = document.getElementById('distance');
 
-  const featureNames = ['bases_lines', 'bases_est', 'bases_real']
+  const featureNames = ['lines', 'estimation', 'real']
+  let debugData = null;
 
   // Distance debugging definitions
   // GeoJSON object to hold our measurement features
@@ -108,7 +148,7 @@ map.on('load', () => {
       distanceContainer.appendChild(value);
     }
 
-    map.getSource('geojson').setData(geojson);
+    map.getSource('distance-geojson').setData(geojson);
   }
   //End distance debugging definitions
 
@@ -123,7 +163,7 @@ map.on('load', () => {
       JSON.stringify(e.lngLat.wrap());
 
     //feature debug code here:
-    const features = map.queryRenderedFeatures(e.point, {'layers':['bases_est', 'bases_real', 'glpath_outline']});
+    const features = map.queryRenderedFeatures(e.point, {'layers':['estimation', 'real', 'glpath_outline']});
 
     const displayProperties = [
       "anode",
@@ -153,17 +193,24 @@ map.on('load', () => {
     );
   }
 
-  debugButton.addEventListener('click', ()=>{
+  debugButton.addEventListener('click', async()=>{
     debugButton.classList.toggle('nodebug');
     featureInfoPane.classList.toggle('hidden');
     positionInfo.classList.toggle('hidden');
 
-    //Load debugging json files when debug is clicked for the first time
+    //Load debugging json file when debug is clicked for the first time
+    if(debugData === null) {
+      const response = await fetch(
+        'data/debug.json'
+      );
+      debugData = await response.json();
+    }
+
     for (let featName of featureNames.values()){
       if(map.getSource(`${featName}`) === undefined){
         map.addSource(`${featName}`, {
           'type': 'geojson',
-          'data': `data/${featName}.json`
+          'data': debugData[featName]
         });
       }
     }
@@ -191,27 +238,27 @@ map.on('load', () => {
     //Debug on
     if (!debugButton.classList.contains('nodebug')) {
       map.addLayer({
-        'id': 'bases_lines',
+        'id': 'lines',
         'type': 'line',
-        'source': 'bases_lines',
+        'source': 'lines',
         'layout': {},
         'paint': {
           'line-color': 'yellow',
           'line-width': 2,
           'line-opacity': 0.5}});
       map.addLayer({
-        'id': 'bases_est',
+        'id': 'estimation',
         'type': 'circle',
-        'source': 'bases_est',
+        'source': 'estimation',
         'paint': {
           'circle-radius': 4,
           'circle-stroke-width': 2,
           'circle-color': 'green',
           'circle-stroke-color': 'white'}});
       map.addLayer({
-        'id': 'bases_real',
+        'id': 'real',
         'type': 'circle',
-        'source': 'bases_real',
+        'source': 'real',
         'paint': {
           'circle-radius': 4,
           'circle-stroke-width': 2,
@@ -259,13 +306,14 @@ class Puppet{
 
   name;
   position;
-  constructor(feature, name, segmentSize=0.5){
+  isDone;
+  constructor(feature, name){
     this.#feature = feature;
-    this.#feature.geometry.coordinates = this.elongatePaths(segmentSize);
     this.#coordinates = turf.coordAll(this.#feature);
     this.position = turf.point(this.#coordinates[0]);
     this.name = name;
     this.#nextCordInd = 1;
+    this.isDone = false;
   }
 
   advance() {
@@ -273,6 +321,7 @@ class Puppet{
       this.position.geometry.coordinates = this.#coordinates[this.#nextCordInd++];
       return false;
     }
+    this.isDone = true;
     return true;
   }
   setupPopup() {
@@ -309,121 +358,134 @@ class Puppet{
       map.getCanvas().style.cursor = '';
       popup.remove();
     });
-
-  }
-  elongatePaths(segmentSize){
-    //A function for addition additional points along a precomputed shortest path from start->end
-    //This is used because the animation draws a point for each vessel every x milliseconds
-    //and by addition more points the animation not only becomes smoother, but it slows it down
-    //and prevents the vessels from looking like they are "teleporting".
-    //segment_size: additional points are added every segment_size KM
-
-      let coords = this.#feature.geometry.coordinates;
-      let elongated_coords = [];
-      let from = coords[0];
-
-      for(let k =1; k< coords.length; k++){
-        let to = coords[k];
-        let distance = turf.distance(turf.point(from), turf.point(to));
-
-        if(distance > segmentSize){
-          let remaining_distance = distance;
-          while(remaining_distance >= segmentSize){
-            let line = turf.lineString([from, to]);
-            let point = turf.along(line, segmentSize);
-            elongated_coords.push(from);
-            from = point.geometry.coordinates;
-            remaining_distance -= segmentSize;
-          }
-        }
-        else if(distance === segmentSize){
-          if(k<coords.length) {
-            elongated_coords.push(from);
-            from = to;
-          }
-        }
-      }
-      elongated_coords.push(from);
-      elongated_coords.push(coords[coords.length-1])
-      return elongated_coords;
   }
 }
 class PuppetMaster {
-  #puppets = [];
-  #timer;
-  #delay;
   #isPaused;
-
-  constructor(features, delay = 10) {
-    const featName = 'vessel';
-    let featNum = 1;
-
-    turf.featureEach(features, (feature) => {
-      const name = featName + featNum++;
-      const puppet = new Puppet(feature, name);
-      this.#puppets.push(puppet);
-
-      map.addSource(name, {type: 'geojson', data: puppet.position});
-      map.addLayer({
-        'id': name,
-        'type': 'circle',
-        'source': name,
-        'paint': {
-          'circle-radius': 4,
-          'circle-stroke-width': 2,
-          'circle-color': '#4264fb',
-          'circle-stroke-color': 'white'
-        }
-      });
-    });
-
-    this.#delay = delay;
+  #manifest;
+  #date;
+  #puppets;
+  #curIndex;
+  #finished;
+  #timerSlow;
+  #timerMed;
+  #timerFast;
+  #dayTimer;
+  #dayDelay;
+  #slowDelay;
+  #medDelay;
+  #fastDelay;
+  constructor(manifest) {
+    this.#puppets = {'slow':[], 'medium': [], 'fast': []};
+    this.#timerSlow = null;
+    this.#timerMed = null;
+    this.#timerFast = null;
+    this.#dayTimer = null;
+    this.#dayDelay = 2000;
+    this.#slowDelay = 30;
+    this.#medDelay = 20;
+    this.#fastDelay = 10;
+    this.#date = manifest[0].Date;
+    this.#manifest = manifest;
+    this.#curIndex = 0;
+    this.#finished = false;
     this.#isPaused = true;
+  }
+
+  addPuppet(vessel, list, color='#4264fb'){
+    const name = vessel['Name of Vessel'];
+    if (map.getSource(name) !== undefined){
+      return;
+    }
+    const routeName = `${vessel['Where From']}+${vessel['Where Bound']}`;
+    const feature = routeMap[routeName];
+    const puppet = new Puppet(feature, name);
+
+    map.addSource(name, {type: 'geojson', data: puppet.position});
+    map.addLayer({
+      'id': name,
+      'type': 'circle',
+      'source': name,
+      'paint': {
+        'circle-radius': 4,
+        'circle-stroke-width': 2,
+        'circle-color': color,
+        'circle-stroke-color': 'white'
+      }
+    });
+    list.push(puppet);
+  }
+
+  addVesselsToLists(){
+    const innerFunc = function(){
+      let vessel = this.#manifest[this.#curIndex];
+      while (vessel.Date.isSame(this.#date) && !this.#finished) {
+        if (vessel['Vessel Type'] === 'Schooner') {
+          this.addPuppet(vessel, this.#puppets.slow);
+        } else if (vessel['Vessel Type'] === 'Barkentine' || vessel['Vessel Type'] === 'Brigantine') {
+          this.addPuppet(vessel, this.#puppets.medium, 'green');
+        } else {
+          this.addPuppet(vessel, this.#puppets.fast, 'purple');
+        }
+
+        if (this.#curIndex + 1 === this.#manifest.length) {
+          this.#finished = true;
+        } else {
+          vessel = this.#manifest[++this.#curIndex]
+        }
+      }
+      this.#date = this.#date.add(1, 'day');
+    }.bind(this);
+
+    //Call the logic once before the timer, so that results show up right away.
+    innerFunc();
+    return setInterval(innerFunc, this.#dayDelay);
   }
 
   pause() {
-    window.clearInterval(this.#timer);
+    window.clearInterval(this.#timerSlow);
+    window.clearInterval(this.#timerMed);
+    window.clearInterval(this.#timerFast);
+    window.clearInterval(this.#dayTimer);
     this.#isPaused = true;
   }
 
+  addTimer(listName, delay){
+    return setInterval(() => {
+      const puppetList = this.#puppets[listName];
+
+      for(let i=0; i<puppetList.length;i++){
+        const puppet = puppetList[i];
+        if(puppet.isDone) continue;
+        map.getSource(puppet.name).setData(puppet.position);
+        const isDone = puppet.advance();
+        if(isDone){
+          map.removeLayer(puppet.name);
+          map.removeSource(puppet.name);
+        }
+      }
+
+    }, delay);
+  }
   play() {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
     if (this.#isPaused) {
-      this.#timer = setInterval(() => {
-        const finished = [];
-
-        for(let i=0; i<this.#puppets.length;i++){
-          const puppet = this.#puppets[i];
-          map.getSource(puppet.name).setData(puppet.position);
-          // puppet.advance();
-          const isDone = puppet.advance();
-          if(isDone){
-            map.removeLayer(puppet.name);
-            map.removeSource(puppet.name);
-            finished.push(puppet);
-          }
-        }
-        // remove finished entities from the screen
-        if(finished.length){
-          const remainingPuppets = [];
-          this.#puppets.forEach((puppet)=>{
-            if(finished.indexOf(puppet) === -1){
-              remainingPuppets.push(puppet);
-            }
-          });
-          this.#puppets = remainingPuppets;
-        }
-      }, this.#delay);
+      this.#dayTimer = this.addVesselsToLists(this.#dayDelay);
+      this.#timerSlow = this.addTimer('slow', this.#slowDelay);
+      this.#timerMed = this.addTimer('medium', this.#medDelay);
+      this.#timerFast = this.addTimer('fast', this.#fastDelay);
       this.#isPaused = false;
     }
   }
 
   die(){
-    window.clearInterval(this.#timer);
-    this.#puppets.forEach((puppet)=>{
-      map.removeLayer(puppet.name);
-      map.removeSource(puppet.name);
+    this.pause();
+    Object.values(this.#puppets).forEach((list) => {
+      list.forEach((puppet)=>{
+        map.removeLayer(puppet.name);
+        map.removeSource(puppet.name);
+      });
     });
   }
 }
@@ -431,10 +493,18 @@ class PuppetMaster {
 map.on('load', async () => {
 
   const response = await fetch(
-    'data/path.json'
+    'data/manifest.json'
   );
+
   const data = await response.json();
-  let puppeteer = new PuppetMaster(data);
+
+  turf.featureEach(data['routes'], (feature) => {
+    routeMap[feature['properties']['path']] = elongatePaths(feature);
+  })
+  for(let vessel of data['manifest']){
+    vessel['Date'] = dayjs(vessel['Date']);
+  }
+  let puppeteer = new PuppetMaster(data['manifest']);
 
   const pauseButton = document.getElementById('pause');
   const restartButton = document.getElementById('restart')
@@ -454,7 +524,7 @@ map.on('load', async () => {
       pauseButton.classList.toggle('pause');
     }
     puppeteer.die();
-    puppeteer = new PuppetMaster(data);
+    puppeteer = new PuppetMaster(data['manifest']);
     puppeteer.play();
   });
 
