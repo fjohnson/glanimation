@@ -34,6 +34,14 @@ button {
   top: 40px;
 }
 
+#date {
+  text-align: center;
+  margin: 0px auto;
+  top: 50px;
+  position: relative;
+  font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  font-size: 50px;
+}
 /*Start DEBUG styles*/
 
 #debug {
@@ -67,8 +75,9 @@ button {
 }
 
 #position-info {
+  top: 35%;
   display: table;
-  position: relative;
+  position: absolute;
   margin: 0px auto;
   word-wrap: anywhere;
   white-space: pre-wrap;
@@ -78,7 +87,8 @@ button {
   font-size: 12px;
   text-align: center;
   color: #222;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.8);
+  right: 0;
 }
 
 #position-info.hidden::after {

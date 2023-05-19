@@ -303,17 +303,20 @@ class Puppet{
   #feature;
   #coordinates;
   #nextCordInd;
+  #vesselInfo;
 
   name;
   position;
   isDone;
-  constructor(feature, name){
+  constructor(feature, vesselInfo){
     this.#feature = feature;
     this.#coordinates = turf.coordAll(this.#feature);
     this.position = turf.point(this.#coordinates[0]);
-    this.name = name;
+    this.name = vesselInfo['Name of Vessel'];
     this.#nextCordInd = 1;
     this.isDone = false;
+    this.#vesselInfo = vesselInfo;
+    this.setupPopup();
   }
 
   advance() {
@@ -325,8 +328,8 @@ class Puppet{
     return true;
   }
   setupPopup() {
-
-    position.properties = {'description':'<strong>Mad Men Season Five Finale Watch Party</strong><p>Head to Lounge 201 (201 Massachusetts Avenue NE) Sunday for a Mad Men Season Five Finale Watch Party, complete with 60s costume contest, Mad Men trivia, and retro food and drink. 8:00-11:00 p.m. $10 general admission, $20 admission and two hour open bar.</p>'}
+    const vi = this.#vesselInfo;
+    const name = this.#vesselInfo['Name of Vessel'];
 
     // Create a popup, but don't add it to the map yet.
     const popup = new mapboxgl.Popup({
@@ -334,13 +337,19 @@ class Puppet{
       closeOnClick: false
     });
 
-    map.on('mouseenter', 'trace1', (e) => {
+    map.on('mouseenter', name, (e) => {
       // Change the cursor style as a UI indicator.
       map.getCanvas().style.cursor = 'pointer';
 
       // Copy coordinates array.
       const coordinates = e.features[0].geometry.coordinates.slice();
-      const description = e.features[0].properties.description;
+      const description =
+        `<p>Nationality: ${vi.Nationality}</p>
+        <p>Type: ${vi['Vessel Type']}</p>
+        <p>Name: ${vi['Name of Vessel']}</p>
+        <p>From: ${vi['Where From']}</p>
+        <p>To: ${vi['Where Bound']}</p>
+        <p>Cargo: ${vi.Cargo.join(',')}</p>`;
 
       // Ensure that if the map is zoomed out such that multiple
       // copies of the feature are visible, the popup appears
@@ -354,7 +363,7 @@ class Puppet{
       popup.setLngLat(coordinates).setHTML(description).addTo(map);
     });
 
-    map.on('mouseleave', 'trace1', () => {
+    map.on('mouseleave', name, () => {
       map.getCanvas().style.cursor = '';
       popup.remove();
     });
@@ -366,7 +375,6 @@ class PuppetMaster {
   #date;
   #puppets;
   #curIndex;
-  #finished;
   #timerSlow;
   #timerMed;
   #timerFast;
@@ -388,7 +396,6 @@ class PuppetMaster {
     this.#date = manifest[0].Date;
     this.#manifest = manifest;
     this.#curIndex = 0;
-    this.#finished = false;
     this.#isPaused = true;
   }
 
@@ -399,7 +406,7 @@ class PuppetMaster {
     }
     const routeName = `${vessel['Where From']}+${vessel['Where Bound']}`;
     const feature = routeMap[routeName];
-    const puppet = new Puppet(feature, name);
+    const puppet = new Puppet(feature, vessel);
 
     map.addSource(name, {type: 'geojson', data: puppet.position});
     map.addLayer({
@@ -419,7 +426,8 @@ class PuppetMaster {
   addVesselsToLists(){
     const innerFunc = function(){
       let vessel = this.#manifest[this.#curIndex];
-      while (vessel.Date.isSame(this.#date) && !this.#finished) {
+
+      while (vessel.Date.isSame(this.#date)) {
         if (vessel['Vessel Type'] === 'Schooner') {
           this.addPuppet(vessel, this.#puppets.slow);
         } else if (vessel['Vessel Type'] === 'Barkentine' || vessel['Vessel Type'] === 'Brigantine') {
@@ -427,14 +435,14 @@ class PuppetMaster {
         } else {
           this.addPuppet(vessel, this.#puppets.fast, 'purple');
         }
-
-        if (this.#curIndex + 1 === this.#manifest.length) {
-          this.#finished = true;
-        } else {
-          vessel = this.#manifest[++this.#curIndex]
-        }
+        vessel = this.#manifest[++this.#curIndex];
       }
-      this.#date = this.#date.add(1, 'day');
+
+      // Don't change the date if we have finished iterating through the manifest
+      if (this.#curIndex !== this.#manifest.length - 1) {
+        document.getElementById('date').innerText = this.#date.format('YYYY MMMM D');
+        this.#date = this.#date.add(1, 'day');
+      }
     }.bind(this);
 
     //Call the logic once before the timer, so that results show up right away.
