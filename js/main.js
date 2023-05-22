@@ -8,7 +8,7 @@ const map = new mapboxgl.Map({
 });
 
 const routeMap = {};
-function elongatePaths(feature, segmentSize = 10){
+function elongatePaths(feature, segmentSize = 0.5){
   //A function for addition additional points along a precomputed shortest path from start->end
   //This is used because the animation draws a point for each vessel every x milliseconds
   //and by adding more points the animation not only becomes smoother, but it slows it down
@@ -303,70 +303,31 @@ class Puppet{
   #feature;
   #coordinates;
   #nextCordInd;
-  #vesselInfo;
 
+  vesselInfo;
   name;
-  position;
+  nextPosition;
+  curPosition;
   isDone;
-  constructor(feature, vesselInfo){
+  constructor(feature, vesselInfo, offset=0){
     this.#feature = feature;
     this.#coordinates = turf.coordAll(this.#feature);
-    this.position = turf.point(this.#coordinates[0]);
+    this.nextPosition = this.#coordinates[offset];
+    this.curPosition = null;
     this.name = vesselInfo['Name of Vessel'];
     this.#nextCordInd = 1;
     this.isDone = false;
-    this.#vesselInfo = vesselInfo;
-    this.setupPopup();
+    this.vesselInfo = vesselInfo;
   }
 
   advance() {
     if (this.#nextCordInd < this.#coordinates.length) {
-      this.position.geometry.coordinates = this.#coordinates[this.#nextCordInd++];
+      this.curPosition = this.nextPosition;
+      this.nextPosition = this.#coordinates[this.#nextCordInd++];
       return false;
     }
     this.isDone = true;
     return true;
-  }
-  setupPopup() {
-    const vi = this.#vesselInfo;
-    const name = this.#vesselInfo['Name of Vessel'];
-
-    // Create a popup, but don't add it to the map yet.
-    const popup = new mapboxgl.Popup({
-      closeButton: false,
-      closeOnClick: false
-    });
-
-    map.on('mouseenter', name, (e) => {
-      // Change the cursor style as a UI indicator.
-      map.getCanvas().style.cursor = 'pointer';
-
-      // Copy coordinates array.
-      const coordinates = e.features[0].geometry.coordinates.slice();
-      const description =
-        `<p>Nationality: ${vi.Nationality}</p>
-        <p>Type: ${vi['Vessel Type']}</p>
-        <p>Name: ${vi['Name of Vessel']}</p>
-        <p>From: ${vi['Where From']}</p>
-        <p>To: ${vi['Where Bound']}</p>
-        <p>Cargo: ${vi.Cargo.join(',')}</p>`;
-
-      // Ensure that if the map is zoomed out such that multiple
-      // copies of the feature are visible, the popup appears
-      // over the copy being pointed to.
-      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
-      }
-
-      // Populate the popup and set its coordinates
-      // based on the feature found.
-      popup.setLngLat(coordinates).setHTML(description).addTo(map);
-    });
-
-    map.on('mouseleave', name, () => {
-      map.getCanvas().style.cursor = '';
-      popup.remove();
-    });
   }
 }
 class PuppetMaster {
@@ -374,6 +335,7 @@ class PuppetMaster {
   #manifest;
   #date;
   #puppets;
+  #puppetPositions;
   #curIndex;
   #timerSlow;
   #timerMed;
@@ -385,6 +347,7 @@ class PuppetMaster {
   #fastDelay;
   constructor(manifest) {
     this.#puppets = {'slow':[], 'medium': [], 'fast': []};
+    this.#puppetPositions = {'slow': turf.multiPoint(), 'medium':turf.multiPoint(), 'fast':turf.multiPoint()};
     this.#timerSlow = null;
     this.#timerMed = null;
     this.#timerFast = null;
@@ -397,18 +360,28 @@ class PuppetMaster {
     this.#manifest = manifest;
     this.#curIndex = 0;
     this.#isPaused = true;
+
+    this.addPositionLayers('slow','#4264fb');
+    this.addPositionLayers('medium','green');
+    this.addPositionLayers('fast','purple');
+    ['slow','medium','fast'].forEach((name)=>{
+      this.setupPopups(name);
+    })
+    // setInterval(()=>{
+    //   ['slow','medium','fast'].forEach((name)=>{
+    //     const cleaned = [];
+    //     for(let p of this.#puppets[name].values()){
+    //       if(!p.isDone){
+    //         cleaned.push(p);
+    //       }
+    //     }
+    //     this.#puppets[name] = cleaned;
+    //   })
+    // }, 3000)
   }
 
-  addPuppet(vessel, list, color='#4264fb'){
-    const name = vessel['Name of Vessel'];
-    if (map.getSource(name) !== undefined){
-      return;
-    }
-    const routeName = `${vessel['Where From']}+${vessel['Where Bound']}`;
-    const feature = routeMap[routeName];
-    const puppet = new Puppet(feature, vessel);
-
-    map.addSource(name, {type: 'geojson', data: puppet.position});
+  addPositionLayers(name, color){
+    map.addSource(name, {type: 'geojson', data: null});
     map.addLayer({
       'id': name,
       'type': 'circle',
@@ -420,22 +393,111 @@ class PuppetMaster {
         'circle-stroke-color': 'white'
       }
     });
+  }
+  addPuppet(vessel, list, offset){
+    const name = vessel['Name of Vessel'];
+
+    if (map.getSource(name) !== undefined){
+      /*Needed right now to prevent the same ship from existing on the map at the same time
+     This happens when say ship A is placed on the map at date t2, then ship A is again
+     placed on the map on date t2. Really, ship A should have been taken off the map before
+     being added at t2, but the speed the at which ships are currently emulated is not 100%
+     indicative of real life.*/
+      return;
+    }
+    const routeName = `${vessel['Where From']}+${vessel['Where Bound']}`;
+    const feature = routeMap[routeName];
+    const puppet = new Puppet(feature, vessel, offset);
+
     list.push(puppet);
   }
 
+  findPuppet(mouseCoord, listName){
+    //Find the puppet whose position is closest to the mouse.
+    let minimumDistance = null;
+    let closest = null;
+    const mcPoint = turf.point(mouseCoord);
+
+    this.#puppets[listName].forEach((puppet)=>{
+      if(puppet.isDone){
+        //Don't look up vessels that are no longer on the map
+        return;
+      }
+      const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
+      const distance = turf.distance(mcPoint, turf.point(pPoint));
+      if(minimumDistance === null || minimumDistance > distance){
+        closest = puppet
+        minimumDistance = distance;
+      }
+    });
+
+    return closest;
+  }
+  setupPopups(listName) {
+    // Create a popup, but don't add it to the map yet.
+    const popup = new mapboxgl.Popup({
+      closeButton: false,
+      closeOnClick: false
+    });
+
+    map.on('mouseenter', listName, (e) => {
+      // Change the cursor style as a UI indicator.
+      map.getCanvas().style.cursor = 'pointer';
+
+      const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
+      const puppet = this.findPuppet(mousePoint, listName);
+      const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
+      const vi = puppet.vesselInfo;
+
+      const description =
+        `<p>Nationality: ${vi.Nationality}</p>
+        <p>Type: ${vi['Vessel Type']}</p>
+        <p>Name: ${vi['Name of Vessel']}</p>
+        <p>From: ${vi['Where From']}</p>
+        <p>To: ${vi['Where Bound']}</p>
+        <p>Cargo: ${vi.Cargo.join(',')}</p>`;
+
+      // Populate the popup and set its coordinates
+      // based on the feature found.
+      popup.setLngLat(pPoint).setHTML(description).addTo(map);
+    });
+
+    map.on('mouseleave', listName, () => {
+      map.getCanvas().style.cursor = '';
+      popup.remove();
+    });
+  }
   addVesselsToLists(){
     const innerFunc = function(){
-      let vessel = this.#manifest[this.#curIndex];
-
-      while (vessel.Date.isSame(this.#date)) {
-        if (vessel['Vessel Type'] === 'Schooner') {
-          this.addPuppet(vessel, this.#puppets.slow);
-        } else if (vessel['Vessel Type'] === 'Barkentine' || vessel['Vessel Type'] === 'Brigantine') {
-          this.addPuppet(vessel, this.#puppets.medium, 'green');
-        } else {
-          this.addPuppet(vessel, this.#puppets.fast, 'purple');
+      /*This "collision map" serves to find vessels that are leaving from the same location
+      * and that will appear stack upon one another when drawn on the map unless fixed. For stacked
+      * vessels, an offset is determined for use (next coordinate in their path). Thus, 12 vessels starting
+      * from the same location will end up looking like a line instead of a single dot.*/
+      let v = this.#manifest[this.#curIndex];
+      let collisionMap = new Map();
+      while (v.Date.isSame(this.#date)) {
+        const from = v['Where From'];
+        if (!collisionMap.has(from)){
+          collisionMap.set(from,[v]);
         }
-        vessel = this.#manifest[++this.#curIndex];
+        else{
+          collisionMap.get(from).push(v);
+        }
+        v = this.#manifest[++this.#curIndex];
+      }
+
+      for(const collisions of collisionMap.values()){
+        let offset = 0;
+        collisions.forEach((v)=>{
+          if (v['Vessel Type'] === 'Schooner') {
+            this.addPuppet(v, this.#puppets.slow, offset);
+          } else if (v['Vessel Type'] === 'Barkentine' || v['Vessel Type'] === 'Brigantine') {
+            this.addPuppet(v, this.#puppets.medium, offset);
+          } else {
+            this.addPuppet(v, this.#puppets.fast, offset);
+          }
+          offset++;
+        });
       }
 
       // Don't change the date if we have finished iterating through the manifest
@@ -461,17 +523,16 @@ class PuppetMaster {
   addTimer(listName, delay){
     return setInterval(() => {
       const puppetList = this.#puppets[listName];
+      const curPositions = [];
 
-      for(let i=0; i<puppetList.length;i++){
-        const puppet = puppetList[i];
-        if(puppet.isDone) continue;
-        map.getSource(puppet.name).setData(puppet.position);
-        const isDone = puppet.advance();
-        if(isDone){
-          map.removeLayer(puppet.name);
-          map.removeSource(puppet.name);
+      puppetList.forEach((puppet)=>{
+        if(!puppet.isDone) {
+          curPositions.push(puppet.nextPosition);
+          puppet.advance();
         }
-      }
+      });
+      this.#puppetPositions[listName].geometry.coordinates = curPositions;
+      map.getSource(listName).setData(this.#puppetPositions[listName]);
 
     }, delay);
   }
@@ -489,11 +550,9 @@ class PuppetMaster {
 
   die(){
     this.pause();
-    Object.values(this.#puppets).forEach((list) => {
-      list.forEach((puppet)=>{
-        map.removeLayer(puppet.name);
-        map.removeSource(puppet.name);
-      });
+    ['slow','medium','fast'].forEach((name)=>{
+      map.removeLayer(name);
+      map.removeSource(name);
     });
   }
 }
@@ -537,7 +596,72 @@ map.on('load', async () => {
   });
 
   puppeteer.play();
-
-
+  // manimation();
+  //setInterval(manimation, 6000);
 });
 
+// let iteration = 0
+// function manimation(){
+//   let iterationName = 'positions'+iteration++;
+//   function getRndInteger(min, max) {
+//     return Math.floor(Math.random() * (max - min) ) + min;
+//   }
+//   const npoints = 25;
+//   const rpoints = turf.randomPoint(npoints, {bbox:[-87.5, 45.8, -78.5, 41.62]});
+//
+//   //const dpoints = Array(npoints);
+//   const lines = [];
+//   const srcCoords = turf.coordAll(rpoints);
+//   for(let i = 0; i< npoints;i++){
+//     var point = turf.point(srcCoords[i]);
+//     var distance = getRndInteger(400, 1000);
+//     var bearing = getRndInteger(0,360);
+//     var options = {units: 'kilometers'};
+//
+//     var destination = turf.destination(point, distance, bearing, options);
+//     lines.push(turf.lineString([srcCoords[i], turf.getCoord(destination)]));
+//   }
+//   const lineFeatures = turf.featureCollection(lines)
+//   turf.featureEach(lineFeatures, function(feature, i){
+//     feature.geometry.coordinates = elongatePaths(feature, 0.5).geometry.coordinates;
+//   });
+//
+//
+//   map.addSource(iterationName, {
+//     'type': 'geojson',
+//     'data': null
+//   });
+//   map.addLayer({
+//     'id': iterationName,
+//     'type': 'circle',
+//     'source': iterationName,
+//     'paint': {
+//       'circle-radius': 4,
+//       'circle-stroke-width': 2,
+//       'circle-color': 'orange',
+//       'circle-stroke-color': 'white'}});
+//
+//
+//   let points = turf.multiPoint();
+//   let i = 0;
+//
+//   const timer = setInterval(()=>{
+//     let curPoints = [];
+//     turf.featureEach(lineFeatures, (feature)=>{
+//       let coords = feature.geometry.coordinates;
+//       if(i < coords.length){
+//         curPoints.push(coords[i]);
+//       }
+//     });
+//     if(curPoints.length){
+//       i++;
+//     }
+//     else{
+//       clearInterval(timer);
+//       map.removeLayer(iterationName);
+//       map.removeSource(iterationName);
+//     }
+//     points.geometry.coordinates = curPoints;
+//     map.getSource(iterationName).setData(points);
+//   }, 1);
+// }
