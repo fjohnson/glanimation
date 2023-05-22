@@ -312,12 +312,21 @@ class Puppet{
   constructor(feature, vesselInfo, offset=0){
     this.#feature = feature;
     this.#coordinates = turf.coordAll(this.#feature);
-    this.nextPosition = this.#coordinates[offset];
+    this.#nextCordInd = 1;
     this.curPosition = null;
     this.name = vesselInfo['Name of Vessel'];
-    this.#nextCordInd = 1;
     this.isDone = false;
     this.vesselInfo = vesselInfo;
+
+    if(offset >= this.#coordinates.length){
+      /*FIXME, this means that this puppet is going to share the same starting position
+      * on the map as another puppet and will be obscured. Use turf.along to generate new points??
+      */
+      offset = 0;
+    }
+    this.nextPosition = this.#coordinates[offset];
+
+
   }
 
   advance() {
@@ -328,6 +337,10 @@ class Puppet{
     }
     this.isDone = true;
     return true;
+  }
+
+  get numPositions(){
+    return this.#coordinates.length;
   }
 }
 class PuppetMaster {
@@ -345,6 +358,9 @@ class PuppetMaster {
   #slowDelay;
   #medDelay;
   #fastDelay;
+  #listCleaner;
+  #lastDate;
+
   constructor(manifest) {
     this.#puppets = {'slow':[], 'medium': [], 'fast': []};
     this.#puppetPositions = {'slow': turf.multiPoint(), 'medium':turf.multiPoint(), 'fast':turf.multiPoint()};
@@ -360,24 +376,27 @@ class PuppetMaster {
     this.#manifest = manifest;
     this.#curIndex = 0;
     this.#isPaused = true;
+    this.#lastDate = manifest[manifest.length-1].Date;//manifest[manifest.length-1].Date;
 
     this.addPositionLayers('slow','#4264fb');
     this.addPositionLayers('medium','green');
     this.addPositionLayers('fast','purple');
     ['slow','medium','fast'].forEach((name)=>{
       this.setupPopups(name);
-    })
-    // setInterval(()=>{
-    //   ['slow','medium','fast'].forEach((name)=>{
-    //     const cleaned = [];
-    //     for(let p of this.#puppets[name].values()){
-    //       if(!p.isDone){
-    //         cleaned.push(p);
-    //       }
-    //     }
-    //     this.#puppets[name] = cleaned;
-    //   })
-    // }, 3000)
+    });
+
+    //Periodically remove puppets that are no longer on the map
+    this.#listCleaner = setInterval(()=>{
+      ['slow','medium','fast'].forEach((name)=>{
+        const cleaned = [];
+        for(let p of this.#puppets[name].values()){
+          if(!p.isDone){
+            cleaned.push(p);
+          }
+        }
+        this.#puppets[name] = cleaned;
+      })
+    }, 10000);
   }
 
   addPositionLayers(name, color){
@@ -470,23 +489,29 @@ class PuppetMaster {
   addVesselsToLists(){
     const innerFunc = function(){
       /*This "collision map" serves to find vessels that are leaving from the same location
-      * and that will appear stack upon one another when drawn on the map unless fixed. For stacked
+      * and that will appear stacked upon one another when drawn on the map unless fixed. For stacked
       * vessels, an offset is determined for use (next coordinate in their path). Thus, 12 vessels starting
       * from the same location will end up looking like a line instead of a single dot.*/
-      let v = this.#manifest[this.#curIndex];
+
       let collisionMap = new Map();
-      while (v.Date.isSame(this.#date)) {
+      while ((this.#curIndex < this.#manifest.length) && this.#manifest[this.#curIndex].Date.isSame(this.#date)) {
+        const v = this.#manifest[this.#curIndex];
         const from = v['Where From'];
-        if (!collisionMap.has(from)){
-          collisionMap.set(from,[v]);
-        }
-        else{
-          collisionMap.get(from).push(v);
-        }
-        v = this.#manifest[++this.#curIndex];
+        !collisionMap.has(from) ? collisionMap.set(from,[v]) : collisionMap.get(from).push(v);
+        this.#curIndex++;
       }
 
-      for(const collisions of collisionMap.values()){
+      /*This function allows us to sort the vessels that are going to appear simultaneously on the same spot
+      * on the map, from those with the least number of path coordinates to the greatest. This is required so that when
+      * an offset is supplied, the greater the number of possible path positions that a vessel has, the greater
+      * the offset. Of course, it is still possible that some points will be stacked upon one another if there are more
+      * points than available starting positions.
+      * */
+      const compareFn = (a,b) => {
+        return b.numPositions - a.numPositions;
+      }
+
+      for(const collisions of [...collisionMap.values()].sort(compareFn)){
         let offset = 0;
         collisions.forEach((v)=>{
           if (v['Vessel Type'] === 'Schooner') {
@@ -501,7 +526,7 @@ class PuppetMaster {
       }
 
       // Don't change the date if we have finished iterating through the manifest
-      if (this.#curIndex !== this.#manifest.length - 1) {
+      if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
         document.getElementById('date').innerText = this.#date.format('YYYY MMMM D');
         this.#date = this.#date.add(1, 'day');
       }
@@ -550,6 +575,7 @@ class PuppetMaster {
 
   die(){
     this.pause();
+    window.clearInterval(this.#listCleaner);
     ['slow','medium','fast'].forEach((name)=>{
       map.removeLayer(name);
       map.removeSource(name);
@@ -596,72 +622,6 @@ map.on('load', async () => {
   });
 
   puppeteer.play();
-  // manimation();
-  //setInterval(manimation, 6000);
 });
 
-// let iteration = 0
-// function manimation(){
-//   let iterationName = 'positions'+iteration++;
-//   function getRndInteger(min, max) {
-//     return Math.floor(Math.random() * (max - min) ) + min;
-//   }
-//   const npoints = 25;
-//   const rpoints = turf.randomPoint(npoints, {bbox:[-87.5, 45.8, -78.5, 41.62]});
-//
-//   //const dpoints = Array(npoints);
-//   const lines = [];
-//   const srcCoords = turf.coordAll(rpoints);
-//   for(let i = 0; i< npoints;i++){
-//     var point = turf.point(srcCoords[i]);
-//     var distance = getRndInteger(400, 1000);
-//     var bearing = getRndInteger(0,360);
-//     var options = {units: 'kilometers'};
-//
-//     var destination = turf.destination(point, distance, bearing, options);
-//     lines.push(turf.lineString([srcCoords[i], turf.getCoord(destination)]));
-//   }
-//   const lineFeatures = turf.featureCollection(lines)
-//   turf.featureEach(lineFeatures, function(feature, i){
-//     feature.geometry.coordinates = elongatePaths(feature, 0.5).geometry.coordinates;
-//   });
-//
-//
-//   map.addSource(iterationName, {
-//     'type': 'geojson',
-//     'data': null
-//   });
-//   map.addLayer({
-//     'id': iterationName,
-//     'type': 'circle',
-//     'source': iterationName,
-//     'paint': {
-//       'circle-radius': 4,
-//       'circle-stroke-width': 2,
-//       'circle-color': 'orange',
-//       'circle-stroke-color': 'white'}});
-//
-//
-//   let points = turf.multiPoint();
-//   let i = 0;
-//
-//   const timer = setInterval(()=>{
-//     let curPoints = [];
-//     turf.featureEach(lineFeatures, (feature)=>{
-//       let coords = feature.geometry.coordinates;
-//       if(i < coords.length){
-//         curPoints.push(coords[i]);
-//       }
-//     });
-//     if(curPoints.length){
-//       i++;
-//     }
-//     else{
-//       clearInterval(timer);
-//       map.removeLayer(iterationName);
-//       map.removeSource(iterationName);
-//     }
-//     points.geometry.coordinates = curPoints;
-//     map.getSource(iterationName).setData(points);
-//   }, 1);
-// }
+
