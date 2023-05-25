@@ -2,12 +2,13 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZmpvaG5zODg4IiwiYSI6ImNsaGh6eXo1dDAzMDMzbW1td
 const map = new mapboxgl.Map({
   container: 'map', // container ID
   // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-  style: 'mapbox://styles/mapbox/light-v11', // style URL
+  style: 'mapbox://styles/mapbox/streets-v12', // style URL
   center: [-83.926, 43.433], // starting position [lng, lat]
   zoom: 5 // starting zoom
 });
 
 const routeMap = {};
+
 function elongatePaths(feature, segmentSize = 0.5){
   //A function for addition additional points along a precomputed shortest path from start->end
   //This is used because the animation draws a point for each vessel every x milliseconds
@@ -52,32 +53,48 @@ map.on('load', () => {
     'data': "data/geo.json"
   });
 
-  // Add a black outline around the polygon.
-  map.addLayer({
-    'id': 'glpath_outline',
-    'type': 'line',
-    'source': 'glpaths',
-    'layout': {},
-    'paint': {
-      'line-color': '#000',
-      'line-width': 3,
-      'line-opacity':0.5
-    }
-  });
-
   map.addControl(new mapboxgl.FullscreenControl());
   // Add a map scale control to the map
   map.addControl(new mapboxgl.ScaleControl());
   // Add zoom and rotation controls to the map.
   map.addControl(new mapboxgl.NavigationControl());
 
+  const mbglcc = document.getElementsByClassName("mapboxgl-control-container")[0];
+  const cctr = mbglcc.getElementsByClassName("mapboxgl-ctrl-top-right")[0];
+  const html = `<div class="mapboxgl-ctrl mapboxgl-ctrl-group">
+  <button id="pause-btn" aria-label="play" title="Playing"><i class="fa-solid fa-pause"></i></button>
+  <button id="restart-btn" aria-label="restart" title="Restart"><i class="fa-solid fa-rotate-left"></i></button>
+  <button id="speed-btn" class="fa-layers fa-fw 1x" title="Adjust speed">
+   <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
+  </button>
+  <button id="terrain-btn" class="outdoors-v12" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
+  <button id="debug-btn" title="Debug" aria-label="debug">
+    <i class="fa-solid fa-bug-slash"></i>
+  </debug>
+</div>`
+  cctr.insertAdjacentHTML('beforeend',html);
+
+  const tbtn = document.getElementById('terrain-btn');
+  tbtn.addEventListener("click", ()=>{
+    const cycle = new Map([["light-v11","dark-v11"],["dark-v11","streets-v12"],
+      ["streets-v12","outdoors-v12"],["outdoors-v12","light-v11"]]);
+
+    for(let current of tbtn.classList.values()){
+      if(cycle.has(current)){
+        map.setStyle('mapbox://styles/mapbox/' + cycle.get(current));
+        tbtn.classList.toggle(current);
+        tbtn.classList.toggle(cycle.get(current));
+        break;
+      }
+    }
+  });
 
 });
 
 //DEBUG of location estimation
 map.on('load', () => {
 
-  const debugButton = document.getElementById('debug');
+  const debugButton = document.getElementById('debug-btn');
   const positionInfo = document.getElementById('position-info');
   const featureInfoPane = document.getElementById('features');
   const distanceContainer = document.getElementById('distance');
@@ -194,7 +211,7 @@ map.on('load', () => {
   }
 
   debugButton.addEventListener('click', async()=>{
-    debugButton.classList.toggle('nodebug');
+    debugButton.classList.toggle('on');
     featureInfoPane.classList.toggle('hidden');
     positionInfo.classList.toggle('hidden');
 
@@ -222,21 +239,24 @@ map.on('load', () => {
       });
     }
 
+    debugButton.replaceChildren();
     //Debug off
-    if (debugButton.classList.contains('nodebug')) {
+    if (!debugButton.classList.contains('on')) {
       for(let featName of featureNames.values()){
         map.removeLayer(featName);
       }
 
       map.removeLayer('measure-points');
       map.removeLayer('measure-lines');
+      map.removeLayer('glpath_outline');
       map.off('mousemove', featureDebug);
       map.off('click', measurePoints);
       map.on('mouseover', ()=>{ map.getCanvas().style.cursor = '';});
+      debugButton.insertAdjacentHTML('beforeend','<i class="fa-solid fa-bug"></i>');
     }
 
     //Debug on
-    if (!debugButton.classList.contains('nodebug')) {
+    else{
       map.addLayer({
         'id': 'lines',
         'type': 'line',
@@ -264,6 +284,19 @@ map.on('load', () => {
           'circle-stroke-width': 2,
           'circle-color': 'orange',
           'circle-stroke-color': 'white'}});
+
+      // Show paths
+      map.addLayer({
+        'id': 'glpath_outline',
+        'type': 'line',
+        'source': 'glpaths',
+        'layout': {},
+        'paint': {
+          'line-color': '#000',
+          'line-width': 3,
+          'line-opacity':0.5
+        }
+      });
 
       // Distance measuring layers
       map.addLayer({
@@ -295,6 +328,7 @@ map.on('load', () => {
       map.on('mousemove', featureDebug);
       map.on('click', measurePoints);
       map.on('mouseover', () => {map.getCanvas().style.cursor = 'crosshair';});
+      debugButton.insertAdjacentHTML('beforeend','<i class="fa-solid fa-bug-slash"></i>');
     }
   });
 });
@@ -354,6 +388,7 @@ class PuppetMaster {
   #timerMed;
   #timerFast;
   #dayTimer;
+  #delayDefaults;
   #dayDelay;
   #slowDelay;
   #medDelay;
@@ -376,7 +411,7 @@ class PuppetMaster {
     this.#manifest = manifest;
     this.#curIndex = 0;
     this.#isPaused = true;
-    this.#lastDate = manifest[manifest.length-1].Date;//manifest[manifest.length-1].Date;
+    this.#lastDate = manifest[manifest.length-1].Date;
 
     this.addPositionLayers('slow','#4264fb');
     this.addPositionLayers('medium','green');
@@ -399,6 +434,11 @@ class PuppetMaster {
     }, 10000);
   }
 
+  setSpeed(speed){
+    const speedFactor = parseFloat(speed.slice(0,-1))
+    this.pause()
+    this.play(speedFactor)
+  }
   addPositionLayers(name, color){
     map.addSource(name, {type: 'geojson', data: null});
     map.addLayer({
@@ -486,7 +526,7 @@ class PuppetMaster {
       popup.remove();
     });
   }
-  addVesselsToLists(){
+  addVesselsToLists(delay){
     const innerFunc = function(){
       /*This "collision map" serves to find vessels that are leaving from the same location
       * and that will appear stacked upon one another when drawn on the map unless fixed. For stacked
@@ -534,7 +574,7 @@ class PuppetMaster {
 
     //Call the logic once before the timer, so that results show up right away.
     innerFunc();
-    return setInterval(innerFunc, this.#dayDelay);
+    return setInterval(innerFunc, delay);
   }
 
   pause() {
@@ -549,6 +589,16 @@ class PuppetMaster {
     return setInterval(() => {
       const puppetList = this.#puppets[listName];
       const curPositions = [];
+      const mapSrc = map.getSource(listName);
+
+      /*This happens when the map style changes (i.e, streets-v12, outdoors-v12, etc)
+      has been changed. When a style change occurs all layers and sources are cleared
+      and need to be re-added. Map emits an on('styledata') event when it's ready for
+      the additions. If we got here, it's because this timer happened after a change
+      but before the styledata event was emitted. Just return until we can redraw*/
+      if(mapSrc === undefined){
+        return;
+      }
 
       puppetList.forEach((puppet)=>{
         if(!puppet.isDone) {
@@ -557,18 +607,18 @@ class PuppetMaster {
         }
       });
       this.#puppetPositions[listName].geometry.coordinates = curPositions;
-      map.getSource(listName).setData(this.#puppetPositions[listName]);
+      mapSrc.setData(this.#puppetPositions[listName]);
 
     }, delay);
   }
-  play() {
+  play(speedFactor=1) {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
     if (this.#isPaused) {
-      this.#dayTimer = this.addVesselsToLists(this.#dayDelay);
-      this.#timerSlow = this.addTimer('slow', this.#slowDelay);
-      this.#timerMed = this.addTimer('medium', this.#medDelay);
-      this.#timerFast = this.addTimer('fast', this.#fastDelay);
+      this.#dayTimer = this.addVesselsToLists(this.#dayDelay / speedFactor);
+      this.#timerSlow = this.addTimer('slow', this.#slowDelay / speedFactor);
+      this.#timerMed = this.addTimer('medium', this.#medDelay / speedFactor);
+      this.#timerFast = this.addTimer('fast', this.#fastDelay / speedFactor);
       this.#isPaused = false;
     }
   }
@@ -576,10 +626,23 @@ class PuppetMaster {
   die(){
     this.pause();
     window.clearInterval(this.#listCleaner);
-    ['slow','medium','fast'].forEach((name)=>{
+    Object.keys(this.#puppets).forEach((name)=>{
       map.removeLayer(name);
       map.removeSource(name);
     });
+  }
+
+  reinitLayers() {
+    /*A bit hacky, but this check is necessary since the 'styledata' event can be emitted
+      multiple times and at the beginning when the map is first loaded.
+    */
+    if(map.getSource('slow') !== undefined)
+      return;
+
+    this.addPositionLayers('slow','#4264fb');
+    this.addPositionLayers('medium','green');
+    this.addPositionLayers('fast','purple');
+
   }
 }
 
@@ -599,26 +662,60 @@ map.on('load', async () => {
   }
   let puppeteer = new PuppetMaster(data['manifest']);
 
-  const pauseButton = document.getElementById('pause');
-  const restartButton = document.getElementById('restart')
+  const pauseButton = document.getElementById('pause-btn');
+  const restartButton = document.getElementById('restart-btn')
+  const speedButton = document.getElementById("speed-btn");
 
-  // click the button to pause or play
   pauseButton.addEventListener('click', ()=>{
     pauseButton.classList.toggle('pause');
+    let html;
     if (pauseButton.classList.contains('pause')) {
       puppeteer.pause();
+      html = '<i class="fa-solid fa-play"></i>';
+      pauseButton.setAttribute('title','Play');
     } else {
+      puppeteer.play();
+      html = '<i class="fa-solid fa-pause"></i>';
+      pauseButton.setAttribute('title','Pause');
+    }
+    pauseButton.replaceChildren();
+    pauseButton.insertAdjacentHTML('beforeend',html);
+  });
+
+  restartButton.addEventListener('click', ()=>{
+    puppeteer.die();
+    puppeteer = new PuppetMaster(data['manifest']);
+
+    if(pauseButton.classList.contains('pause')){
+      //If the button is paused on restart, change its state to playing
+      pauseButton.click();
+    }else{
+      //Otherwise state is okay, so just begin playing.
       puppeteer.play();
     }
   });
 
-  restartButton.addEventListener('click', ()=>{
-    if(pauseButton.classList.contains('pause')){
-      pauseButton.classList.toggle('pause');
+  speedButton.addEventListener("click", ()=>{
+    let speedText;
+    const cycle = new Map([["0.5x","1x"],["1x","2x"],["2x","4x"],["4x","0.5x"]]);
+    for(let current of speedButton.classList.values()){
+      if(cycle.has(current)){
+        speedButton.classList.toggle(current);
+        speedButton.classList.toggle(cycle.get(current));
+        speedText = cycle.get(current);
+        puppeteer.setSpeed(speedText);
+        const html = `<span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">${speedText}</span>`
+        speedButton.replaceChildren();
+        speedButton.insertAdjacentHTML('beforeend',html);
+        break;
+      }
     }
-    puppeteer.die();
-    puppeteer = new PuppetMaster(data['manifest']);
-    puppeteer.play();
+  });
+
+  map.on('styledata', () => {
+    //This event is emitted the first time the map is loaded
+    //and whenever the style is changed (happening multiple times apparently)
+    puppeteer.reinitLayers();
   });
 
   puppeteer.play();

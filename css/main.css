@@ -17,23 +17,6 @@ body { margin: 0; padding: 0; }
   font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
 }
 
-button {
-  position: absolute;
-  margin: 20px;
-}
-
-#pause::after {
-  content: 'Pause';
-}
-
-#pause.pause::after {
-  content: 'Play';
-}
-
-#restart {
-  top: 40px;
-}
-
 #date {
   text-align: center;
   margin: 0px auto;
@@ -42,19 +25,8 @@ button {
   font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
   font-size: 50px;
 }
+
 /*Start DEBUG styles*/
-
-#debug {
-  top: 80px;
-}
-
-#debug::after {
-  content: 'No Debug';
-}
-
-#debug.nodebug::after {
-  content: 'Debug';
-}
 
 .distance-container {
   position: absolute;
@@ -109,10 +81,6 @@ button {
 #features.hidden::after{
   visibility: hidden;
 }
-
-/*#map canvas {*/
-/*  cursor: crosshair;*/
-/*}*/
 /*End DEBUG styles*/
 /* End animation/map CSS properties*/
 
