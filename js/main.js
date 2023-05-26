@@ -2,7 +2,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZmpvaG5zODg4IiwiYSI6ImNsaGh6eXo1dDAzMDMzbW1td
 const map = new mapboxgl.Map({
   container: 'map', // container ID
   // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-  style: 'mapbox://styles/mapbox/streets-v12', // style URL
+  style: 'mapbox://styles/mapbox/navigation-day-v1', // style URL
   center: [-83.926, 43.433], // starting position [lng, lat]
   zoom: 5 // starting zoom
 });
@@ -48,11 +48,6 @@ function elongatePaths(feature, segmentSize = 0.5){
 
 map.on('load', () => {
 
-  map.addSource('glpaths', {
-    'type': 'geojson',
-    'data': "data/geo.json"
-  });
-
   map.addControl(new mapboxgl.FullscreenControl());
   // Add a map scale control to the map
   map.addControl(new mapboxgl.ScaleControl());
@@ -67,7 +62,7 @@ map.on('load', () => {
   <button id="speed-btn" class="fa-layers fa-fw 1x" title="Adjust speed">
    <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
   </button>
-  <button id="terrain-btn" class="outdoors-v12" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
+  <button id="terrain-btn" class="navigation-day-v1" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
   <button id="debug-btn" title="Debug" aria-label="debug">
     <i class="fa-solid fa-bug-slash"></i>
   </debug>
@@ -76,14 +71,26 @@ map.on('load', () => {
 
   const tbtn = document.getElementById('terrain-btn');
   tbtn.addEventListener("click", ()=>{
-    const cycle = new Map([["light-v11","dark-v11"],["dark-v11","streets-v12"],
-      ["streets-v12","outdoors-v12"],["outdoors-v12","light-v11"]]);
+    const cycle = new Map([
+      ["navigation-day-v1","streets-v12",],
+      ["streets-v12","satellite-streets-v12"],["satellite-streets-v12","outdoors-v12"],
+      ["outdoors-v12","light-v11"],["light-v11","navigation-day-v1"]]);
 
     for(let current of tbtn.classList.values()){
       if(cycle.has(current)){
-        map.setStyle('mapbox://styles/mapbox/' + cycle.get(current));
+        const styleNow = cycle.get(current);
+        map.setStyle('mapbox://styles/mapbox/' + styleNow);
         tbtn.classList.toggle(current);
-        tbtn.classList.toggle(cycle.get(current));
+        tbtn.classList.toggle(styleNow);
+
+        if(styleNow === 'satellite-streets-v12'){
+          document.getElementById("date").style.color = "#fff";
+          document.getElementById("title").style.color = "#fff";
+        }
+        else{
+          document.getElementById("date").style.color = "black";
+          document.getElementById("title").style.color = "black";
+        }
         break;
       }
     }
@@ -214,6 +221,13 @@ map.on('load', () => {
     debugButton.classList.toggle('on');
     featureInfoPane.classList.toggle('hidden');
     positionInfo.classList.toggle('hidden');
+
+    if(map.getSource('glpaths') === undefined){
+      map.addSource('glpaths', {
+        'type': 'geojson',
+        'data': "data/geo.json"
+      });
+    }
 
     //Load debugging json file when debug is clicked for the first time
     if(debugData === null) {
