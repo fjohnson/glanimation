@@ -581,7 +581,7 @@ class PuppetMaster {
 
       // Don't change the date if we have finished iterating through the manifest
       if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
-        document.getElementById('date').innerText = this.#date.format('YYYY MMMM D');
+        document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
         this.#date = this.#date.add(1, 'day');
       }
     }.bind(this);

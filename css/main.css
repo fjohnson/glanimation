@@ -14,7 +14,6 @@ body { margin: 0; padding: 0; }
 
 .mapboxgl-popup {
   max-width: 400px;
-  /*font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;*/
   font-family: 'Roboto', sans-serif;
   font-size: 12px;
 }
@@ -28,9 +27,11 @@ body { margin: 0; padding: 0; }
 }
 #title{
   top: 25px;
+  font-weight: 600;
 }
 #date {
   top: 35px;
+  font-weight: 300;
 }
 
 #box {
@@ -72,6 +73,7 @@ body { margin: 0; padding: 0; }
 .legend-header {
   grid-area: header;
   justify-self: center;
+  font-weight: bold;
 }
 
 /*Start DEBUG styles*/
