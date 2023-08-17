@@ -2,7 +2,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZmpvaG5zODg4IiwiYSI6ImNsaGh6eXo1dDAzMDMzbW1td
 const map = new mapboxgl.Map({
   container: 'map', // container ID
   // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-  style: 'mapbox://styles/mapbox/navigation-day-v1', // style URL
+  style: 'mapbox://styles/mapbox/light-v11', // style URL
   center: [-83.926, 43.433], // starting position [lng, lat]
   zoom: 5 // starting zoom
 });
@@ -72,9 +72,9 @@ map.on('load', () => {
   const tbtn = document.getElementById('terrain-btn');
   tbtn.addEventListener("click", ()=>{
     const cycle = new Map([
-      ["navigation-day-v1","streets-v12",],
+      ["light-v11","navigation-day-v1"],["navigation-day-v1","streets-v12",],
       ["streets-v12","satellite-streets-v12"],["satellite-streets-v12","outdoors-v12"],
-      ["outdoors-v12","light-v11"],["light-v11","navigation-day-v1"]]);
+      ["outdoors-v12","light-v11"]]);
 
     for(let current of tbtn.classList.values()){
       if(cycle.has(current)){
