@@ -197,17 +197,25 @@ map.on('load', () => {
       "linkname"
     ];
 
-    const displayFeatures = features.map((feat) => {
-
-      const displayFeat = {};
-      displayProperties.forEach((prop) => {
-        displayFeat[prop] = feat['properties'][prop];
-      });
-      if('name' in feat['properties']){
-        displayFeat['name']=feat['properties']['name'];
+    const displayFeatures = {};
+    features.forEach((feat) => {
+      if('name' in feat.properties){
+        if(displayFeatures.names === undefined){
+          displayFeatures.names = [];
+        }
+        displayFeatures.names.push(feat.properties.name);
       }
-      return displayFeat;
-    });
+      else if('linkname' in feat.properties){
+        if(displayFeatures.path === undefined){
+          displayFeatures.path = [];
+        }
+        const path_feat = {};
+        displayProperties.forEach((prop) => {
+          path_feat[prop] = feat['properties'][prop];
+        });
+        displayFeatures['path'].push(path_feat);
+      }
+    })
 
     // Write object as string with an indent of two spaces.
     document.getElementById('features').innerHTML = JSON.stringify(
@@ -222,14 +230,19 @@ map.on('load', () => {
     featureInfoPane.classList.toggle('hidden');
     positionInfo.classList.toggle('hidden');
 
+    // Load QGIS geojson (and pruned) version of this to show possible paths ships may take:
+    // https://www.arcgis.com/home/item.html?id=a4940deebec84fb9b6afa65afcbf891d#overview
+
     if(map.getSource('glpaths') === undefined){
       map.addSource('glpaths', {
         'type': 'geojson',
-        'data': "data/geo.json"
+        'data': "data/water_paths.json"
       });
     }
 
     //Load debugging json file when debug is clicked for the first time
+    //This file is for showing actual geocoded locations vs their estimated location on the map
+    //Its primary purpose is to aid in the correction of incorrect estimations or geocoded locations
     if(debugData === null) {
       const response = await fetch(
         'data/debug.json'
