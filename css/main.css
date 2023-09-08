@@ -23,8 +23,37 @@ body { margin: 0; padding: 0; }
   margin: 0px auto;
   position: relative;
   font-family: "Nunito Sans", sans-serif;
-  font-size: 46px;
 }
+/* CSS rules for screens smaller than 600px */
+/*@media (max-width: 650px) {*/
+/*  #title, #date {*/
+/*    font-size: 1em;*/
+/*  }*/
+/*}*/
+
+/* CSS rules for screens between 601px and 1200px */
+@media (min-width: 601px)  {
+  #title, #date {
+    font-size: 1.5em;
+  }
+}
+@media (min-width: 800px) {
+  #title, #date {
+    font-size: 1.8em;
+  }
+}
+
+@media (min-width: 950px){
+  #title, #date {
+    font-size:2.2em;
+  }
+}
+@media (min-width: 1301px){
+  #title, #date {
+    font-size:2.5em;
+  }
+}
+
 #title{
   top: 25px;
   font-weight: 600;
@@ -38,8 +67,9 @@ body { margin: 0; padding: 0; }
   position:absolute;
   bottom:5%;
   right:0;
-  width:200px;
-  height:125px;
+  /*width:200px;*/
+  width:12vw;
+  /*height:10vh;*/
   margin:10px;
   padding:10px;
   background:#fff;
@@ -47,7 +77,25 @@ body { margin: 0; padding: 0; }
   box-shadow: 0 0 0 2px rgba(0,0,0,.1);
 }
 
-.container {  display: grid;
+/*Freeze the size of the legend box when the width is below 801px*/
+@media (max-width: 800px){
+  #box {
+    width: 122px;
+  }
+  .container {
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 801px){
+  .container {
+    font-size: .9vw;
+  }
+}
+
+.container {
+
+  display: grid;
   grid-template-columns: 0.3fr 1.7fr;
   grid-template-rows: 1fr 1fr 1fr 1fr;
   gap: 0px 0px;
@@ -59,10 +107,9 @@ body { margin: 0; padding: 0; }
     ". .";
 }
 
-.container > * {
-  margin: 5px 0 5px 0;
+.container > p {
+  margin:0px;
   font-family: 'Roboto', sans-serif;
-  font-size: 14px;
 }
 
 .container > img {
