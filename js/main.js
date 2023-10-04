@@ -382,6 +382,7 @@ class Puppet{
     if(offset >= this.#coordinates.length){
       /*FIXME, this means that this puppet is going to share the same starting position
       * on the map as another puppet and will be obscured. Use turf.along to generate new points??
+      * Is this fixed?? See function PuppetMaster.addVesselsToLists()
       */
       offset = 0;
     }
@@ -520,29 +521,76 @@ class PuppetMaster {
     return closest;
   }
   setupPopups(listName) {
+    /*FIXME Currently can only add one single popup per layer*/
+
     // Create a popup, but don't add it to the map yet.
     const popup = new mapboxgl.Popup({
-      closeButton: false,
-      closeOnClick: false
+      closeButton: true,
+      closeOnClick: false,
+      maxWidth: 'none'
     });
 
-    map.on('mouseenter', listName, (e) => {
-      // Change the cursor style as a UI indicator.
+    map.on('mouseenter', listName, (e) =>{
       map.getCanvas().style.cursor = 'pointer';
+    });
+
+    map.on('mousedown', listName, (e) => {
+      // Change the cursor style as a UI indicator.
 
       const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
       const puppet = this.findPuppet(mousePoint, listName);
       const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
       const vi = puppet.vesselInfo;
 
-      const description =
-        `<p>Nationality: ${vi.Nationality}</p>
-        <p>Type: ${vi['Vessel Type']}</p>
-        <p>Name: ${vi['Name of Vessel']}</p>
-        <p>From: ${vi['Where From']}</p>
-        <p>To: ${vi['Where Bound']}</p>
-        <p>Cargo: ${vi.Cargo.join(',')}</p>`;
+      const barkentineSVG = "https://upload.wikimedia.org/wikipedia/commons/f/f1/Sail_plan_barquentine.svg";
+      const schoonerSVG = "https://upload.wikimedia.org/wikipedia/commons/e/e1/Sail_plan_schooner.svg";
+      const propellerImg = "https://tinyurl.com/yc4c7555";
+      const blankImg = "https://upload.wikimedia.org/wikipedia/en/9/98/Blank_button.svg";
+      const vesselType = vi['Vessel Type'].trim().toLowerCase();
 
+      let vesselImg;
+      if(vesselType === "schooner"){
+        vesselImg = schoonerSVG;
+      }
+      else if(vesselType === "brigantine" || vesselType === "barkentine"){
+        vesselImg = barkentineSVG;
+      }
+      else if(vesselType === "propeller"){
+        vesselImg = propellerImg;
+      }
+      else{
+        vesselImg = blankImg;
+      }
+      const nationality = vi.Nationality.trim().toLowerCase();
+      let nationalityImg;
+      if(nationality === "american"){
+        nationalityImg = "https://tinyurl.com/22a9e7k4";
+      }
+      else if(nationality === "british"){
+        nationalityImg = "https://tinyurl.com/mryhtu6t";
+      }
+      else{
+        nationalityImg = blankImg;
+      }
+
+      const description =
+        `<div class="popup">
+          <div class="phead">
+            <p>${vi['Name of Vessel']}</p>
+            <div>
+              <img src=${nationalityImg} width=30>
+              <img src=${vesselImg} width=30/>
+            </div>
+          </div>
+
+          <div class=pbody>
+            <div class=pbody-location>
+              <p><em>${vi['Where From']}</em> to <em>${vi['Where Bound']}</em></p>
+              <img class="pulsate-fwd" src="https://www.svgrepo.com/show/308323/route-spot-guide-map.svg" width=30/>
+            </div>
+            <p>${vi.Cargo.join(', ')}</p>
+          </div>
+        </div>`
       // Populate the popup and set its coordinates
       // based on the feature found.
       popup.setLngLat(pPoint).setHTML(description).addTo(map);
@@ -550,7 +598,6 @@ class PuppetMaster {
 
     map.on('mouseleave', listName, () => {
       map.getCanvas().style.cursor = '';
-      popup.remove();
     });
   }
   addVesselsToLists(delay){
