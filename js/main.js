@@ -545,7 +545,6 @@ class PuppetMaster {
       const barkentineSVG = "https://upload.wikimedia.org/wikipedia/commons/f/f1/Sail_plan_barquentine.svg";
       const schoonerSVG = "https://upload.wikimedia.org/wikipedia/commons/e/e1/Sail_plan_schooner.svg";
       const propellerImg = "https://tinyurl.com/yc4c7555";
-      const blankImg = "https://upload.wikimedia.org/wikipedia/en/9/98/Blank_button.svg";
       const vesselType = vi['Vessel Type'].trim().toLowerCase();
 
       let vesselImg;
@@ -559,10 +558,13 @@ class PuppetMaster {
         vesselImg = propellerImg;
       }
       else{
-        vesselImg = blankImg;
+        vesselImg = null;
       }
+      const vesselImgString = vesselImg !== null ? `<img src=${vesselImg} width=30/>` : '';
+
       const nationality = vi.Nationality.trim().toLowerCase();
       let nationalityImg;
+
       if(nationality === "american"){
         nationalityImg = "https://tinyurl.com/22a9e7k4";
       }
@@ -570,23 +572,22 @@ class PuppetMaster {
         nationalityImg = "https://tinyurl.com/mryhtu6t";
       }
       else{
-        nationalityImg = blankImg;
+        nationalityImg = null;
       }
-
+      const nationalityImgString = nationalityImg !== null ? `<img src=${nationalityImg} width=30>` : '';
       const description =
         `<div class="popup">
           <div class="phead">
             <p>${vi['Name of Vessel']}</p>
             <div>
-              <img src=${nationalityImg} width=30>
-              <img src=${vesselImg} width=30/>
+              ${vesselImgString}
+              ${nationalityImgString}
             </div>
           </div>
 
           <div class=pbody>
             <div class=pbody-location>
               <p><em>${vi['Where From']}</em> to <em>${vi['Where Bound']}</em></p>
-              <img class="pulsate-fwd" src="https://www.svgrepo.com/show/308323/route-spot-guide-map.svg" width=30/>
             </div>
             <p>${vi.Cargo.join(', ')}</p>
           </div>
