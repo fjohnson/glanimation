@@ -361,7 +361,6 @@ map.on('load', () => {
 });
 
 class Puppet{
-  #feature;
   #coordinates;
   #nextCordInd;
 
@@ -371,8 +370,7 @@ class Puppet{
   curPosition;
   isDone;
   constructor(feature, vesselInfo, offset=0){
-    this.#feature = feature;
-    this.#coordinates = turf.coordAll(this.#feature);
+    this.#coordinates = turf.coordAll(feature);
     this.#nextCordInd = 1;
     this.curPosition = null;
     this.name = vesselInfo['Name of Vessel'];
@@ -404,6 +402,10 @@ class Puppet{
   get numPositions(){
     return this.#coordinates.length;
   }
+
+  get coordsGeoJson(){
+    return turf.lineString(this.#coordinates);
+  }
 }
 class PuppetMaster {
   #isPaused;
@@ -416,15 +418,20 @@ class PuppetMaster {
   #timerMed;
   #timerFast;
   #dayTimer;
-  #delayDefaults;
   #dayDelay;
   #slowDelay;
   #medDelay;
   #fastDelay;
   #listCleaner;
   #lastDate;
+  #layers;
+  #layerColours;
+  #popup;
 
   constructor(manifest) {
+    //FIXME use this.#layers to create this.#puppets, this.#puppetPositions, addPositionLayers, etc
+    this.#layers = ['slow','medium','fast'];
+    this.#layerColours = {'slow':'#4264fb','medium':'green','fast':'purple'};
     this.#puppets = {'slow':[], 'medium': [], 'fast': []};
     this.#puppetPositions = {'slow': turf.multiPoint(), 'medium':turf.multiPoint(), 'fast':turf.multiPoint()};
     this.#timerSlow = null;
@@ -440,17 +447,17 @@ class PuppetMaster {
     this.#curIndex = 0;
     this.#isPaused = true;
     this.#lastDate = manifest[manifest.length-1].Date;
+    this.#popup = this.setupPopup(this.#layers);
 
-    this.addPositionLayers('slow','#4264fb');
-    this.addPositionLayers('medium','green');
-    this.addPositionLayers('fast','purple');
-    ['slow','medium','fast'].forEach((name)=>{
-      this.setupPopups(name);
-    });
+    for (const [layer, colour] of Object.entries(this.#layerColours)) {
+      this.addPositionLayers(layer, colour);
+    }
+
+    this.highlightRouteAndTrack(this.#layers);
 
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
-      ['slow','medium','fast'].forEach((name)=>{
+      this.#layers.forEach((name)=>{
         const cleaned = [];
         for(let p of this.#puppets[name].values()){
           if(!p.isDone){
@@ -485,7 +492,7 @@ class PuppetMaster {
     const name = vessel['Name of Vessel'];
 
     if (map.getSource(name) !== undefined){
-      /*Needed right now to prevent the same ship from existing on the map at the same time
+      /*FIXME: Needed right now to prevent the same ship from existing on the map at the same time
      This happens when say ship A is placed on the map at date t2, then ship A is again
      placed on the map on date t2. Really, ship A should have been taken off the map before
      being added at t2, but the speed the at which ships are currently emulated is not 100%
@@ -520,8 +527,53 @@ class PuppetMaster {
 
     return closest;
   }
-  setupPopups(listName) {
-    /*FIXME Currently can only add one single popup per layer*/
+  highlightRouteAndTrack(layerNames) {
+    const sourceName = 'hlRouteSrc';
+    const layerName = 'hlRouteLayer';
+
+    layerNames.forEach((layer) => {
+      map.on('mousedown', layer, (e) => {
+        const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
+        const puppet = this.findPuppet(mousePoint, layer);
+
+        map.addSource(sourceName, {
+          "type": "geojson",
+          "data": puppet.coordsGeoJson
+        });
+
+        map.addLayer({
+          'id': layerName,
+          'type': 'line',
+          'source': sourceName,
+          'layout': {},
+          'paint': {
+            'line-color': 'blue',
+            'line-width': 4,
+            'line-opacity': 0.5
+          }
+        });
+
+      });
+    });
+  }
+
+  removeHLLayer(){
+    const sourceName = 'hlRouteSrc';
+    const layerName = 'hlRouteLayer';
+
+    if (map.getLayer(layerName)) {
+      map.removeLayer(layerName);
+    }
+
+    try{
+      map.removeSource(sourceName);
+    }catch({name, message}) {
+      if(name !== 'Error' || message !== 'There is no source with this ID'){
+        throw new Error(message);
+      }
+    }
+  }
+  setupPopup(layerNames){
 
     // Create a popup, but don't add it to the map yet.
     const popup = new mapboxgl.Popup({
@@ -530,53 +582,58 @@ class PuppetMaster {
       maxWidth: 'none'
     });
 
-    map.on('mouseenter', listName, (e) =>{
-      map.getCanvas().style.cursor = 'pointer';
-    });
+    layerNames.forEach((layer)=>{
+      map.on('mouseenter', layer, (e) =>{
+        map.getCanvas().style.cursor = 'pointer';
+      });
 
-    map.on('mousedown', listName, (e) => {
-      // Change the cursor style as a UI indicator.
+      map.on('mouseleave', layer, () => {
+        map.getCanvas().style.cursor = '';
+      });
 
-      const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
-      const puppet = this.findPuppet(mousePoint, listName);
-      const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
-      const vi = puppet.vesselInfo;
+      map.on('mousedown', layer, (e) => {
+        // Change the cursor style as a UI indicator.
 
-      const barkentineSVG = "https://upload.wikimedia.org/wikipedia/commons/f/f1/Sail_plan_barquentine.svg";
-      const schoonerSVG = "https://upload.wikimedia.org/wikipedia/commons/e/e1/Sail_plan_schooner.svg";
-      const propellerImg = "https://tinyurl.com/yc4c7555";
-      const vesselType = vi['Vessel Type'].trim().toLowerCase();
+        const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
+        const puppet = this.findPuppet(mousePoint, layer);
+        const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
+        const vi = puppet.vesselInfo;
 
-      let vesselImg;
-      if(vesselType === "schooner"){
-        vesselImg = schoonerSVG;
-      }
-      else if(vesselType === "brigantine" || vesselType === "barkentine"){
-        vesselImg = barkentineSVG;
-      }
-      else if(vesselType === "propeller"){
-        vesselImg = propellerImg;
-      }
-      else{
-        vesselImg = null;
-      }
-      const vesselImgString = vesselImg !== null ? `<img src=${vesselImg} width=30/>` : '';
+        const barkentineSVG = "https://upload.wikimedia.org/wikipedia/commons/f/f1/Sail_plan_barquentine.svg";
+        const schoonerSVG = "https://upload.wikimedia.org/wikipedia/commons/e/e1/Sail_plan_schooner.svg";
+        const propellerImg = "https://tinyurl.com/yc4c7555";
+        const vesselType = vi['Vessel Type'].trim().toLowerCase();
 
-      const nationality = vi.Nationality.trim().toLowerCase();
-      let nationalityImg;
+        let vesselImg;
+        if(vesselType === "schooner"){
+          vesselImg = schoonerSVG;
+        }
+        else if(vesselType === "brigantine" || vesselType === "barkentine"){
+          vesselImg = barkentineSVG;
+        }
+        else if(vesselType === "propeller"){
+          vesselImg = propellerImg;
+        }
+        else{
+          vesselImg = null;
+        }
+        const vesselImgString = vesselImg !== null ? `<img src=${vesselImg} width=30/>` : '';
 
-      if(nationality === "american"){
-        nationalityImg = "https://tinyurl.com/22a9e7k4";
-      }
-      else if(nationality === "british"){
-        nationalityImg = "https://tinyurl.com/mryhtu6t";
-      }
-      else{
-        nationalityImg = null;
-      }
-      const nationalityImgString = nationalityImg !== null ? `<img src=${nationalityImg} width=30>` : '';
-      const description =
-        `<div class="popup">
+        const nationality = vi.Nationality.trim().toLowerCase();
+        let nationalityImg;
+
+        if(nationality === "american"){
+          nationalityImg = "https://tinyurl.com/22a9e7k4";
+        }
+        else if(nationality === "british"){
+          nationalityImg = "https://tinyurl.com/mryhtu6t";
+        }
+        else{
+          nationalityImg = null;
+        }
+        const nationalityImgString = nationalityImg !== null ? `<img src=${nationalityImg} width=30>` : '';
+        const description =
+          `<div class="popup">
           <div class="phead">
             <p>${vi['Name of Vessel']}</p>
             <div>
@@ -592,14 +649,19 @@ class PuppetMaster {
             <p>${vi.Cargo.join(', ')}</p>
           </div>
         </div>`
-      // Populate the popup and set its coordinates
-      // based on the feature found.
-      popup.setLngLat(pPoint).setHTML(description).addTo(map);
-    });
 
-    map.on('mouseleave', listName, () => {
-      map.getCanvas().style.cursor = '';
+        //Only allow one pop up at a time.
+        if(popup.isOpen()){
+          popup.remove();
+          this.removeHLLayer();
+        }
+
+        // Populate the popup and set its coordinates
+        // based on the feature found.
+        popup.setLngLat(pPoint).setHTML(description).addTo(map);
+      });
     });
+    return popup;
   }
   addVesselsToLists(delay){
     const innerFunc = function(){
