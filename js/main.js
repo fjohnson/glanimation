@@ -427,13 +427,14 @@ class PuppetMaster {
   #layers;
   #layerColours;
   #popup;
+  #trackingPuppet;
 
   constructor(manifest) {
-    //FIXME use this.#layers to create this.#puppets, this.#puppetPositions, addPositionLayers, etc
+
     this.#layers = ['slow','medium','fast'];
-    this.#layerColours = {'slow':'#4264fb','medium':'green','fast':'purple'};
-    this.#puppets = {'slow':[], 'medium': [], 'fast': []};
-    this.#puppetPositions = {'slow': turf.multiPoint(), 'medium':turf.multiPoint(), 'fast':turf.multiPoint()};
+    this.#layerColours = this.getObject(this.#layers, ['#4264fb','green','purple']);
+    this.#puppets = this.getObject(this.#layers,[[],[],[]]);
+    this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
     this.#timerSlow = null;
     this.#timerMed = null;
     this.#timerFast = null;
@@ -448,12 +449,14 @@ class PuppetMaster {
     this.#isPaused = true;
     this.#lastDate = manifest[manifest.length-1].Date;
     this.#popup = this.setupPopup(this.#layers);
+    this.#trackingPuppet = null;
 
     for (const [layer, colour] of Object.entries(this.#layerColours)) {
       this.addPositionLayers(layer, colour);
     }
 
     this.highlightRouteAndTrack(this.#layers);
+    this.addTrackerTimer();
 
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
@@ -467,6 +470,14 @@ class PuppetMaster {
         this.#puppets[name] = cleaned;
       })
     }, 10000);
+  }
+  getObject(keys, vals){
+    const newObj = {};
+    let i = 0;
+    keys.forEach((key)=>{
+      newObj[key] = vals[i++];
+    })
+    return newObj;
   }
 
   setSpeed(speed){
@@ -547,14 +558,17 @@ class PuppetMaster {
           'source': sourceName,
           'layout': {},
           'paint': {
-            'line-color': 'blue',
-            'line-width': 4,
-            'line-opacity': 0.5
+            'line-color': 'yellow',
+            'line-opacity': 0.75,
+            'line-width': 5
           }
         });
 
+        this.#trackingPuppet = puppet;
+        map.jumpTo({'center': puppet.curPosition, 'zoom':7});
       });
     });
+
   }
 
   removeHLLayer(){
@@ -748,6 +762,20 @@ class PuppetMaster {
 
     }, delay);
   }
+  addTrackerTimer(delay){
+    setInterval(()=>{
+      if(!this.#trackingPuppet) return;
+      if(this.#trackingPuppet.isDone){
+        this.#popup.remove();
+        this.removeHLLayer();
+        this.#trackingPuppet = null;
+      }else{
+        map.panTo(this.#trackingPuppet.curPosition);
+        this.#popup.setLngLat(this.#trackingPuppet.curPosition);
+      }
+    }, 1);
+  }
+
   play(speedFactor=1) {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
@@ -776,9 +804,9 @@ class PuppetMaster {
     if(map.getSource('slow') !== undefined)
       return;
 
-    this.addPositionLayers('slow','#4264fb');
-    this.addPositionLayers('medium','green');
-    this.addPositionLayers('fast','purple');
+    for (const [layer, colour] of Object.entries(this.#layerColours)) {
+      this.addPositionLayers(layer, colour);
+    }
 
   }
 }
