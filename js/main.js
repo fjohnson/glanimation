@@ -98,6 +98,81 @@ map.on('load', () => {
 
 });
 
+map.on('load', async () => {
+
+  const response = await fetch(
+    'data/manifest.json'
+  );
+
+  const data = await response.json();
+
+  turf.featureEach(data['routes'], (feature) => {
+    routeMap[feature['properties']['path']] = elongatePaths(feature);
+  })
+  for(let vessel of data['manifest']){
+    vessel['Date'] = dayjs(vessel['Date']);
+  }
+  let puppeteer = new PuppetMaster(data['manifest']);
+
+  const pauseButton = document.getElementById('pause-btn');
+  const restartButton = document.getElementById('restart-btn')
+  const speedButton = document.getElementById("speed-btn");
+
+  pauseButton.addEventListener('click', ()=>{
+    pauseButton.classList.toggle('pause');
+    let html;
+    if (pauseButton.classList.contains('pause')) {
+      puppeteer.pause();
+      html = '<i class="fa-solid fa-play"></i>';
+      pauseButton.setAttribute('title','Play');
+    } else {
+      puppeteer.play();
+      html = '<i class="fa-solid fa-pause"></i>';
+      pauseButton.setAttribute('title','Pause');
+    }
+    pauseButton.replaceChildren();
+    pauseButton.insertAdjacentHTML('beforeend',html);
+  });
+
+  restartButton.addEventListener('click', ()=>{
+    puppeteer.die();
+    puppeteer = new PuppetMaster(data['manifest']);
+
+    if(pauseButton.classList.contains('pause')){
+      //If the button is paused on restart, change its state to playing
+      pauseButton.click();
+    }else{
+      //Otherwise state is okay, so just begin playing.
+      puppeteer.play();
+    }
+  });
+
+  speedButton.addEventListener("click", ()=>{
+    let speedText;
+    const cycle = new Map([["0.5x","1x"],["1x","2x"],["2x","4x"],["4x","0.5x"]]);
+    for(let current of speedButton.classList.values()){
+      if(cycle.has(current)){
+        speedButton.classList.toggle(current);
+        speedButton.classList.toggle(cycle.get(current));
+        speedText = cycle.get(current);
+        puppeteer.setSpeed(speedText);
+        const html = `<span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">${speedText}</span>`
+        speedButton.replaceChildren();
+        speedButton.insertAdjacentHTML('beforeend',html);
+        break;
+      }
+    }
+  });
+
+  map.on('styledata', () => {
+    //This event is emitted the first time the map is loaded
+    //and whenever the style is changed (happening multiple times apparently)
+    puppeteer.reinitLayers();
+  });
+
+  puppeteer.play();
+});
+
 //DEBUG of location estimation
 map.on('load', () => {
 
@@ -360,6 +435,8 @@ map.on('load', () => {
   });
 });
 
+
+
 class Puppet{
   #coordinates;
   #nextCordInd;
@@ -455,7 +532,9 @@ class PuppetMaster {
   #lastDate;
   #layers;
   #layerColours;
+  #listenerList = [];
 
+  //Variables relating to popup / route tracking
   #popup;
   #sourceRemaining = 'hlRouteRemainingSrc';
   #sourceDone = 'hlRouteDoneSrc';
@@ -466,6 +545,7 @@ class PuppetMaster {
   #zoomStartFunc = null;
   #zoomEndFunc = null;
   #trackingTimer = null;
+  #trackingPuppet = null;
   constructor(manifest) {
 
     this.#layers = ['slow','medium','fast'];
@@ -485,7 +565,7 @@ class PuppetMaster {
     this.#curIndex = 0;
     this.#isPaused = true;
     this.#lastDate = manifest[manifest.length-1].Date;
-    // this.#popup = this.setupPopup(this.#layers);
+    this.#popup = this.setupPopup(this.#layers);
 
     for (const [layer, colour] of Object.entries(this.#layerColours)) {
       this.addPositionLayers(layer, colour);
@@ -505,7 +585,6 @@ class PuppetMaster {
         this.#puppets[name] = cleaned;
       })
     }, 5000);
-
   }
   getObject(keys, vals){
     const newObj = {};
@@ -552,7 +631,6 @@ class PuppetMaster {
 
     list.push(puppet);
   }
-
   findPuppet(mouseCoord, listName){
     //Find the puppet whose position is closest to the mouse.
     let minimumDistance = null;
@@ -574,25 +652,14 @@ class PuppetMaster {
 
     return closest;
   }
-  // highlightRouteAndTrack(layerNames){
-  //   let a = [-81.693, 41.495];
-  //   let b = [-78.294, 43.936];
-  //
-  //   layerNames.forEach((layer) => {
-  //     map.on('mousedown', layer, (e) => {
-  //       console.log('clicked!')
-  //       setTimeout(()=>{map.fitBounds([a,b]);},1);
-  //     })
-  //   })
-  // }
+
   highlightRouteAndTrack(layerNames) {
 
     layerNames.forEach((layer) => {
-      map.on('mousedown', layer, (e) => {
+      const mouseDownListener = (e) => {
+        console.log('highlightRouteAndTrack mousedown');
         const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
         const puppet = this.findPuppet(mousePoint, layer);
-
-        this.removeHLLayer();
 
         map.addSource(this.#sourceRemaining, {
           "type": "geojson",
@@ -608,7 +675,7 @@ class PuppetMaster {
             'line-color': 'yellow',
             'line-opacity': 0.75,
             'line-width': 5
-        }});
+          }});
 
         map.addSource(this.#sourceDone, {
           "type": "geojson",
@@ -631,9 +698,13 @@ class PuppetMaster {
         this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(map);
         this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(map);
         this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
-        this.addTrackerTimer(puppet,10);
-
-      });
+        this.#trackingPuppet = puppet;
+        if(!this.#isPaused) {
+          this.addTrackerTimer();
+        }
+      }
+      map.on('mousedown', layer, mouseDownListener);
+      this.#listenerList.push(['mousedown',layer,mouseDownListener]);
     });
 
   }
@@ -671,23 +742,16 @@ class PuppetMaster {
   }
 
   removeHLLayer(){
-    if (map.getLayer(this.#layerRemaining)) {
-      map.removeLayer(this.#layerRemaining);
-      map.removeLayer(this.#layerDone);
-    }
+    console.log('              ->removeHLLayer()');
+    this.#trackingPuppet = null;
+    map.removeLayer(this.#layerRemaining);
+    map.removeLayer(this.#layerDone);
+    map.removeSource(this.#sourceRemaining);
+    map.removeSource(this.#sourceDone);
 
-    try{
-      map.removeSource(this.#sourceRemaining);
-      map.removeSource(this.#sourceDone);
-    }catch({name, message}) {
-      if(name !== 'Error' || message !== 'There is no source with this ID'){
-        throw new Error(message);
-      }
-    }
     this.#markerStart.remove();
     this.#markerEnd.remove();
-    map.off('zoomstart', this.#zoomStartFunc);
-    map.off('zoomend', this.#zoomEndFunc);
+    this.zoomFixOff();
     clearInterval(this.#trackingTimer);
   }
   setupPopup(layerNames){
@@ -698,17 +762,21 @@ class PuppetMaster {
       closeOnClick: false,
       maxWidth: 'none'
     });
+    popup.on('close', () => {
+      console.log('popup close ->')
+      this.removeHLLayer();
+    });
+
+    const mouseEnterListener = (e) =>{
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    const mouseLeaveListener = () => {
+      map.getCanvas().style.cursor = '';
+    }
 
     layerNames.forEach((layer)=>{
-      map.on('mouseenter', layer, (e) =>{
-        map.getCanvas().style.cursor = 'pointer';
-      });
-
-      map.on('mouseleave', layer, () => {
-        map.getCanvas().style.cursor = '';
-      });
-
-      map.on('mousedown', layer, (e) => {
+      const mouseDownListener = (e) => {
+        console.log('setupPopup mousedown');
         // Change the cursor style as a UI indicator.
 
         const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
@@ -767,11 +835,23 @@ class PuppetMaster {
           </div>
         </div>`
 
-        // Populate the popup and set its coordinates
-        // based on the feature found.
-        popup.remove().setLngLat(pPoint).setHTML(description).addTo(map);
-      });
+        //addTo() raises a "close" event if it exists on the map already.
+        //it actually calls fire() on the popup object which then locates
+        //the 'close' listener and executes it. this all happens synchronously
+        //so addTo can be seen as calling the 'close' listener synchronously
+        //and we don't have to worry about order of events happening, i.e.
+        //the 'close' listener occurring after highlightRouteAndTrack()
+        popup.setLngLat(pPoint).setHTML(description).addTo(map);
+      }
+
+      map.on('mouseenter', layer, mouseEnterListener);
+      map.on('mouseleave', layer, mouseLeaveListener);
+      map.on('mousedown', layer, mouseDownListener);
+      this.#listenerList.push(['mouseenter',layer, mouseEnterListener]);
+      this.#listenerList.push(['mouseleave',layer, mouseLeaveListener]);
+      this.#listenerList.push(['mousedown',layer, mouseDownListener]);
     });
+
     return popup;
   }
   addVesselsToLists(delay){
@@ -826,10 +906,14 @@ class PuppetMaster {
   }
 
   pause() {
-    window.clearInterval(this.#timerSlow);
-    window.clearInterval(this.#timerMed);
-    window.clearInterval(this.#timerFast);
-    window.clearInterval(this.#dayTimer);
+    clearInterval(this.#timerSlow);
+    clearInterval(this.#timerMed);
+    clearInterval(this.#timerFast);
+    clearInterval(this.#dayTimer);
+    if(this.#trackingPuppet){
+      clearInterval(this.#trackingTimer);
+      this.zoomFixOff();
+    }
     this.#isPaused = true;
   }
 
@@ -859,18 +943,18 @@ class PuppetMaster {
 
     }, delay);
   }
-  addTrackerTimer(puppet, delay){
+  addTrackerTimer(delay=10){
+    let puppet = this.#trackingPuppet;
     let paused = false;
     const trackingFunc = ()=>{
       if(paused) return;
       console.log('tick-tock');
       if(puppet.isDone){
-        //this.#popup.remove();
-        this.removeHLLayer();
+        this.#popup.remove();
       }
       else{
         map.panTo(puppet.curPosition, {duration:250});
-        //this.#popup.setLngLat(puppet.curPosition);
+        this.#popup.setLngLat(puppet.curPosition);
 
         const {done, remaining} = puppet.coordsProgress;
         map.getSource(this.#sourceRemaining).setData(remaining);
@@ -886,13 +970,11 @@ class PuppetMaster {
      I'm still not sure why this is happening, but its maybe because mapbox can't pan and zoom at the same time,
      when the zoom event is generated outside of the *To function call. So the trick is to suspend the *To calls
      when 'zoomstart' happens, and then reenable them when 'zoomend' occurrs.*/
-    console.log('registering events');
+
     this.#zoomStartFunc = (e) => {
-      console.log(e);
       paused = true;
     }
     this.#zoomEndFunc = (e) => {
-      console.log(e);
       paused = false;
     }
     map.on('zoomstart', this.#zoomStartFunc);
@@ -900,6 +982,10 @@ class PuppetMaster {
 
   }
 
+  zoomFixOff(){
+    map.off('zoomstart', this.#zoomStartFunc);
+    map.off('zoomend', this.#zoomEndFunc);
+  }
   play(speedFactor=1) {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
@@ -908,17 +994,27 @@ class PuppetMaster {
       this.#timerSlow = this.addTimer('slow', this.#slowDelay / speedFactor);
       this.#timerMed = this.addTimer('medium', this.#medDelay / speedFactor);
       this.#timerFast = this.addTimer('fast', this.#fastDelay / speedFactor);
+      if(this.#trackingPuppet){
+        this.addTrackerTimer();
+      }
       this.#isPaused = false;
     }
   }
 
   die(){
     this.pause();
-    window.clearInterval(this.#listCleaner);
+    if(this.#trackingPuppet){
+      this.#popup.remove();
+    }
+    clearInterval(this.#listCleaner);
+    for(const [event, layer, func] of this.#listenerList){
+      map.off(event, layer, func);
+    }
     Object.keys(this.#puppets).forEach((name)=>{
       map.removeLayer(name);
       map.removeSource(name);
     });
+
   }
 
   reinitLayers() {
@@ -935,79 +1031,6 @@ class PuppetMaster {
   }
 }
 
-map.on('load', async () => {
 
-  const response = await fetch(
-    'data/manifest.json'
-  );
-
-  const data = await response.json();
-
-  turf.featureEach(data['routes'], (feature) => {
-    routeMap[feature['properties']['path']] = elongatePaths(feature);
-  })
-  for(let vessel of data['manifest']){
-    vessel['Date'] = dayjs(vessel['Date']);
-  }
-  let puppeteer = new PuppetMaster(data['manifest']);
-
-  const pauseButton = document.getElementById('pause-btn');
-  const restartButton = document.getElementById('restart-btn')
-  const speedButton = document.getElementById("speed-btn");
-
-  pauseButton.addEventListener('click', ()=>{
-    pauseButton.classList.toggle('pause');
-    let html;
-    if (pauseButton.classList.contains('pause')) {
-      puppeteer.pause();
-      html = '<i class="fa-solid fa-play"></i>';
-      pauseButton.setAttribute('title','Play');
-    } else {
-      puppeteer.play();
-      html = '<i class="fa-solid fa-pause"></i>';
-      pauseButton.setAttribute('title','Pause');
-    }
-    pauseButton.replaceChildren();
-    pauseButton.insertAdjacentHTML('beforeend',html);
-  });
-
-  restartButton.addEventListener('click', ()=>{
-    puppeteer.die();
-    puppeteer = new PuppetMaster(data['manifest']);
-
-    if(pauseButton.classList.contains('pause')){
-      //If the button is paused on restart, change its state to playing
-      pauseButton.click();
-    }else{
-      //Otherwise state is okay, so just begin playing.
-      puppeteer.play();
-    }
-  });
-
-  speedButton.addEventListener("click", ()=>{
-    let speedText;
-    const cycle = new Map([["0.5x","1x"],["1x","2x"],["2x","4x"],["4x","0.5x"]]);
-    for(let current of speedButton.classList.values()){
-      if(cycle.has(current)){
-        speedButton.classList.toggle(current);
-        speedButton.classList.toggle(cycle.get(current));
-        speedText = cycle.get(current);
-        puppeteer.setSpeed(speedText);
-        const html = `<span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">${speedText}</span>`
-        speedButton.replaceChildren();
-        speedButton.insertAdjacentHTML('beforeend',html);
-        break;
-      }
-    }
-  });
-
-  map.on('styledata', () => {
-    //This event is emitted the first time the map is loaded
-    //and whenever the style is changed (happening multiple times apparently)
-    puppeteer.reinitLayers();
-  });
-
-  puppeteer.play();
-});
 
 
