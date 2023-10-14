@@ -406,6 +406,35 @@ class Puppet{
   get coordsGeoJson(){
     return turf.lineString(this.#coordinates);
   }
+
+  get coordsProgress(){
+    let doneCoords = this.#coordinates.slice(0,this.#nextCordInd);
+    let remainingCoords = this.#coordinates.slice(this.#nextCordInd);
+
+    /*
+      Need these conditionals because linestrings must always have two points
+      These edge cases happen when either the ship has just been placed on the map
+      or the ship is basically finished its voyage.
+     */
+    if(doneCoords.length<2){
+      doneCoords = turf.lineString(this.#coordinates.slice(0,this.#nextCordInd+1));
+    }
+    else{
+      doneCoords = turf.lineString(doneCoords);
+    }
+
+    if(remainingCoords.length<2){
+      remainingCoords = turf.lineString(this.#coordinates.slice(this.#coordinates.length-2));
+    }
+    else{
+      remainingCoords = turf.lineString(remainingCoords);
+    }
+
+    return {
+      done: doneCoords,
+      remaining: remainingCoords
+    }
+  }
 }
 class PuppetMaster {
   #isPaused;
@@ -426,9 +455,17 @@ class PuppetMaster {
   #lastDate;
   #layers;
   #layerColours;
-  #popup;
-  #trackingPuppet;
 
+  #popup;
+  #sourceRemaining = 'hlRouteRemainingSrc';
+  #sourceDone = 'hlRouteDoneSrc';
+  #layerRemaining = 'hlRouteRemainingLayer';
+  #layerDone = 'hlRouteDoneLayer';
+  #markerStart = new mapboxgl.Marker({'color':'green'});
+  #markerEnd = new mapboxgl.Marker({'color':'red'});
+  #zoomStartFunc = null;
+  #zoomEndFunc = null;
+  #trackingTimer = null;
   constructor(manifest) {
 
     this.#layers = ['slow','medium','fast'];
@@ -448,15 +485,13 @@ class PuppetMaster {
     this.#curIndex = 0;
     this.#isPaused = true;
     this.#lastDate = manifest[manifest.length-1].Date;
-    this.#popup = this.setupPopup(this.#layers);
-    this.#trackingPuppet = null;
+    // this.#popup = this.setupPopup(this.#layers);
 
     for (const [layer, colour] of Object.entries(this.#layerColours)) {
       this.addPositionLayers(layer, colour);
     }
 
     this.highlightRouteAndTrack(this.#layers);
-    this.addTrackerTimer();
 
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
@@ -469,7 +504,8 @@ class PuppetMaster {
         }
         this.#puppets[name] = cleaned;
       })
-    }, 10000);
+    }, 5000);
+
   }
   getObject(keys, vals){
     const newObj = {};
@@ -538,54 +574,121 @@ class PuppetMaster {
 
     return closest;
   }
+  // highlightRouteAndTrack(layerNames){
+  //   let a = [-81.693, 41.495];
+  //   let b = [-78.294, 43.936];
+  //
+  //   layerNames.forEach((layer) => {
+  //     map.on('mousedown', layer, (e) => {
+  //       console.log('clicked!')
+  //       setTimeout(()=>{map.fitBounds([a,b]);},1);
+  //     })
+  //   })
+  // }
   highlightRouteAndTrack(layerNames) {
-    const sourceName = 'hlRouteSrc';
-    const layerName = 'hlRouteLayer';
 
     layerNames.forEach((layer) => {
       map.on('mousedown', layer, (e) => {
         const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
         const puppet = this.findPuppet(mousePoint, layer);
 
-        map.addSource(sourceName, {
+        this.removeHLLayer();
+
+        map.addSource(this.#sourceRemaining, {
           "type": "geojson",
           "data": puppet.coordsGeoJson
         });
 
         map.addLayer({
-          'id': layerName,
+          'id': this.#layerRemaining,
           'type': 'line',
-          'source': sourceName,
+          'source': this.#sourceRemaining,
           'layout': {},
           'paint': {
             'line-color': 'yellow',
             'line-opacity': 0.75,
             'line-width': 5
+        }});
+
+        map.addSource(this.#sourceDone, {
+          "type": "geojson",
+          "data": turf.lineString(puppet.nextPosition)
+        });
+
+        map.addLayer({
+          'id': this.#layerDone,
+          'type': 'line',
+          'source': this.#sourceDone,
+          'layout': {},
+          'paint': {
+            'line-color': 'blue',
+            'line-opacity': 0.75,
+            'line-width': 5
           }
         });
 
-        this.#trackingPuppet = puppet;
-        map.jumpTo({'center': puppet.curPosition, 'zoom':7});
+        const puppetCoords = puppet.coordsGeoJson.geometry.coordinates;
+        this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(map);
+        this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(map);
+        this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
+        this.addTrackerTimer(puppet,10);
+
       });
     });
 
   }
+  /*
+  When a vessel is clicked on, zoom the screen in such that it centers on the vessel and
+  also shows the start and end positions of its voyage.
+  */
+  zoomToStartEnd(puppetPosition, markerStart, markerEnd){
+    //These are mapbox constants
+    const minZoom = 0;
+    const maxZoom = 20;
+
+    const points = turf.points([puppetPosition, markerStart, markerEnd]);
+    let zoom = 0;
+    do {
+      map.jumpTo({'center':puppetPosition, 'zoom':(zoom)});
+      let bounds = map.getBounds();
+      let multipt = turf.multiPoint([
+        [bounds['_sw'].lng,bounds['_sw'].lat],
+        [bounds['_ne'].lng,bounds['_ne'].lat]]);
+      let bbox = turf.bbox(multipt);
+      let bboxPoly = turf.bboxPolygon(bbox);
+      let result = turf.pointsWithinPolygon(points, bboxPoly);
+
+      if(result.features.length !== 3){
+        if(zoom !== minZoom && zoom !== maxZoom){
+          map.jumpTo({'center':puppetPosition, 'zoom':(zoom-1)});
+          break;
+        }else{
+          throw new Error("Marker and center point not visible event at zoom 0 or 20");
+        }
+      }
+      zoom++;
+    } while(zoom < maxZoom+1);
+  }
 
   removeHLLayer(){
-    const sourceName = 'hlRouteSrc';
-    const layerName = 'hlRouteLayer';
-
-    if (map.getLayer(layerName)) {
-      map.removeLayer(layerName);
+    if (map.getLayer(this.#layerRemaining)) {
+      map.removeLayer(this.#layerRemaining);
+      map.removeLayer(this.#layerDone);
     }
 
     try{
-      map.removeSource(sourceName);
+      map.removeSource(this.#sourceRemaining);
+      map.removeSource(this.#sourceDone);
     }catch({name, message}) {
       if(name !== 'Error' || message !== 'There is no source with this ID'){
         throw new Error(message);
       }
     }
+    this.#markerStart.remove();
+    this.#markerEnd.remove();
+    map.off('zoomstart', this.#zoomStartFunc);
+    map.off('zoomend', this.#zoomEndFunc);
+    clearInterval(this.#trackingTimer);
   }
   setupPopup(layerNames){
 
@@ -664,15 +767,9 @@ class PuppetMaster {
           </div>
         </div>`
 
-        //Only allow one pop up at a time.
-        if(popup.isOpen()){
-          popup.remove();
-          this.removeHLLayer();
-        }
-
         // Populate the popup and set its coordinates
         // based on the feature found.
-        popup.setLngLat(pPoint).setHTML(description).addTo(map);
+        popup.remove().setLngLat(pPoint).setHTML(description).addTo(map);
       });
     });
     return popup;
@@ -762,18 +859,45 @@ class PuppetMaster {
 
     }, delay);
   }
-  addTrackerTimer(delay){
-    setInterval(()=>{
-      if(!this.#trackingPuppet) return;
-      if(this.#trackingPuppet.isDone){
-        this.#popup.remove();
+  addTrackerTimer(puppet, delay){
+    let paused = false;
+    const trackingFunc = ()=>{
+      if(paused) return;
+      console.log('tick-tock');
+      if(puppet.isDone){
+        //this.#popup.remove();
         this.removeHLLayer();
-        this.#trackingPuppet = null;
-      }else{
-        map.panTo(this.#trackingPuppet.curPosition);
-        this.#popup.setLngLat(this.#trackingPuppet.curPosition);
       }
-    }, 1);
+      else{
+        map.panTo(puppet.curPosition, {duration:250});
+        //this.#popup.setLngLat(puppet.curPosition);
+
+        const {done, remaining} = puppet.coordsProgress;
+        map.getSource(this.#sourceRemaining).setData(remaining);
+        map.getSource(this.#sourceDone).setData(done);
+      }
+    };
+    this.#trackingTimer = setInterval(trackingFunc, delay);
+
+    /*When a zoom starts, a zoomstart event is fired. then many 'zoom' events are generated as mapbox zooms in a tiny bit
+     at a time to make the animation look smooth. then when it is finished a zoomend event is generated. jumpTo/panTo
+     will stop a 'zoom' event, so that if the interval inbetween *To events is something like 1000ms you will see many
+     of the 'zoom' events happen, however, if the interval is in the order of 10ms you won't see any of them happen.
+     I'm still not sure why this is happening, but its maybe because mapbox can't pan and zoom at the same time,
+     when the zoom event is generated outside of the *To function call. So the trick is to suspend the *To calls
+     when 'zoomstart' happens, and then reenable them when 'zoomend' occurrs.*/
+    console.log('registering events');
+    this.#zoomStartFunc = (e) => {
+      console.log(e);
+      paused = true;
+    }
+    this.#zoomEndFunc = (e) => {
+      console.log(e);
+      paused = false;
+    }
+    map.on('zoomstart', this.#zoomStartFunc);
+    map.on('zoomend', this.#zoomEndFunc);
+
   }
 
   play(speedFactor=1) {
