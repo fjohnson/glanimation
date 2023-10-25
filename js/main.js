@@ -534,7 +534,7 @@ class PuppetMaster {
   #layers;
   #layerColours;
   #listenerList = [];
-
+  #speedFactor = 1;
   //Variables relating to popup / route tracking
   #popup;
   #sourceRemaining = 'hlRouteRemainingSrc';
@@ -572,8 +572,6 @@ class PuppetMaster {
       this.addPositionLayers(layer, colour);
     }
 
-    this.highlightRouteAndTrack(this.#layers);
-
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
       this.#layers.forEach((name)=>{
@@ -597,9 +595,12 @@ class PuppetMaster {
   }
 
   setSpeed(speed){
-    const speedFactor = parseFloat(speed.slice(0,-1))
-    this.pause()
-    this.play(speedFactor)
+    this.#speedFactor = parseFloat(speed.slice(0,-1))
+    if(!this.#isPaused){
+      this.pause();
+      this.play();
+    }
+
   }
   addPositionLayers(name, color){
     map.addSource(name, {type: 'geojson', data: null});
@@ -689,34 +690,6 @@ class PuppetMaster {
     });
   }
 
-  highlightRouteAndTrack(layerNames) {
-
-    layerNames.forEach((layer) => {
-      /*Map layers/srcs are removed when a popup is closed, which happens when
-       a new point is clicked, so we don't need to worry about progressively more
-       and more src/layers accumulating as things are clicked.
-       See setupPopup() and the popup addTo() method.
-       */
-      const mouseDownListener = (e) => {
-        console.log('highlightRouteAndTrack mousedown');
-        const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
-        this.#trackingPuppet = this.findPuppet(mousePoint, layer);
-        const puppetCoords = this.#trackingPuppet.coordsGeoJson.geometry.coordinates;
-
-        this.addHLRLayerAndSrc();
-        this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(map);
-        this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(map);
-        this.zoomToStartEnd(this.#trackingPuppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
-
-        if(!this.#isPaused) {
-          this.addTrackerTimer();
-        }
-      }
-      map.on('mousedown', layer, mouseDownListener);
-      this.#listenerList.push(['mousedown',layer,mouseDownListener]);
-    });
-
-  }
   /*
   When a vessel is clicked on, zoom the screen in such that it centers on the vessel and
   also shows the start and end positions of its voyage.
@@ -848,9 +821,18 @@ class PuppetMaster {
         //it actually calls fire() on the popup object which then locates
         //the 'close' listener and executes it. this all happens synchronously
         //so addTo can be seen as calling the 'close' listener synchronously
-        //and we don't have to worry about order of events happening, i.e.
-        //the 'close' listener occurring after highlightRouteAndTrack()
         popup.setLngLat(pPoint).setHTML(description).addTo(map);
+
+        this.#trackingPuppet = puppet;
+        const puppetCoords = puppet.coordsGeoJson.geometry.coordinates;
+        this.addHLRLayerAndSrc();
+        this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(map);
+        this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(map);
+        this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
+
+        if(!this.#isPaused) {
+          this.addTrackerTimer();
+        }
       }
 
       map.on('mouseenter', layer, mouseEnterListener);
@@ -997,14 +979,14 @@ class PuppetMaster {
     map.off('zoomstart', this.#zoomStartFunc);
     map.off('zoomend', this.#zoomEndFunc);
   }
-  play(speedFactor=1) {
+  play() {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
     if (this.#isPaused) {
-      this.#dayTimer = this.addVesselsToLists(this.#dayDelay / speedFactor);
-      this.#timerSlow = this.addTimer('slow', this.#slowDelay / speedFactor);
-      this.#timerMed = this.addTimer('medium', this.#medDelay / speedFactor);
-      this.#timerFast = this.addTimer('fast', this.#fastDelay / speedFactor);
+      this.#dayTimer = this.addVesselsToLists(this.#dayDelay / this.#speedFactor);
+      this.#timerSlow = this.addTimer('slow', this.#slowDelay / this.#speedFactor);
+      this.#timerMed = this.addTimer('medium', this.#medDelay / this.#speedFactor);
+      this.#timerFast = this.addTimer('fast', this.#fastDelay / this.#speedFactor);
       if(this.#trackingPuppet){
         this.addTrackerTimer();
       }

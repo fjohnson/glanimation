@@ -102,6 +102,11 @@ body { margin: 0; padding: 0; }
   background: rgba(255, 255, 255, 0.8);
   padding: 0px;
 }
+
+.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.8);
+}
+
 .popup {
   min-width: 230px;
   max-width: none;
