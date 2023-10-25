@@ -46,6 +46,7 @@ function elongatePaths(feature, segmentSize = 0.5){
   return {"type": "Feature", "geometry": {"type": "LineString", "coordinates": elongated_coords}};
 }
 
+/*Add Map controls - pause, restart, speed, etc */
 map.on('load', () => {
 
   map.addControl(new mapboxgl.FullscreenControl());
@@ -653,52 +654,60 @@ class PuppetMaster {
     return closest;
   }
 
+  addHLRLayerAndSrc(){
+    map.addSource(this.#sourceRemaining, {
+      "type": "geojson",
+      "data": this.#trackingPuppet.coordsGeoJson
+    });
+
+    map.addLayer({
+      'id': this.#layerRemaining,
+      'type': 'line',
+      'source': this.#sourceRemaining,
+      'layout': {},
+      'paint': {
+        'line-color': 'yellow',
+        'line-opacity': 0.75,
+        'line-width': 5
+      }});
+
+    map.addSource(this.#sourceDone, {
+      "type": "geojson",
+      "data": turf.lineString(this.#trackingPuppet.nextPosition)
+    });
+
+    map.addLayer({
+      'id': this.#layerDone,
+      'type': 'line',
+      'source': this.#sourceDone,
+      'layout': {},
+      'paint': {
+        'line-color': 'blue',
+        'line-opacity': 0.75,
+        'line-width': 5
+      }
+    });
+  }
+
   highlightRouteAndTrack(layerNames) {
 
     layerNames.forEach((layer) => {
+      /*Map layers/srcs are removed when a popup is closed, which happens when
+       a new point is clicked, so we don't need to worry about progressively more
+       and more src/layers accumulating as things are clicked.
+       See setupPopup() and the popup addTo() method.
+       */
       const mouseDownListener = (e) => {
         console.log('highlightRouteAndTrack mousedown');
         const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
-        const puppet = this.findPuppet(mousePoint, layer);
+        this.#trackingPuppet = this.findPuppet(mousePoint, layer);
+        const puppetCoords = this.#trackingPuppet.coordsGeoJson.geometry.coordinates;
 
-        map.addSource(this.#sourceRemaining, {
-          "type": "geojson",
-          "data": puppet.coordsGeoJson
-        });
-
-        map.addLayer({
-          'id': this.#layerRemaining,
-          'type': 'line',
-          'source': this.#sourceRemaining,
-          'layout': {},
-          'paint': {
-            'line-color': 'yellow',
-            'line-opacity': 0.75,
-            'line-width': 5
-          }});
-
-        map.addSource(this.#sourceDone, {
-          "type": "geojson",
-          "data": turf.lineString(puppet.nextPosition)
-        });
-
-        map.addLayer({
-          'id': this.#layerDone,
-          'type': 'line',
-          'source': this.#sourceDone,
-          'layout': {},
-          'paint': {
-            'line-color': 'blue',
-            'line-opacity': 0.75,
-            'line-width': 5
-          }
-        });
-
-        const puppetCoords = puppet.coordsGeoJson.geometry.coordinates;
+        this.addHLRLayerAndSrc();
         this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(map);
         this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(map);
-        this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
-        this.#trackingPuppet = puppet;
+        this.zoomToStartEnd(this.#trackingPuppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
+
         if(!this.#isPaused) {
           this.addTrackerTimer();
         }
@@ -957,6 +966,8 @@ class PuppetMaster {
         this.#popup.setLngLat(puppet.curPosition);
 
         const {done, remaining} = puppet.coordsProgress;
+        /*This may throw an error if the map's style has been changed but reinitLayers() has not executed yet
+        * In this case, the error is harmless and the data will be set once reinitLayers() is called*/
         map.getSource(this.#sourceRemaining).setData(remaining);
         map.getSource(this.#sourceDone).setData(done);
       }
@@ -1017,6 +1028,7 @@ class PuppetMaster {
 
   }
 
+  /*When a style is changed all sources/layers are removed. This adds them back*/
   reinitLayers() {
     /*A bit hacky, but this check is necessary since the 'styledata' event can be emitted
       multiple times and at the beginning when the map is first loaded.
@@ -1026,6 +1038,9 @@ class PuppetMaster {
 
     for (const [layer, colour] of Object.entries(this.#layerColours)) {
       this.addPositionLayers(layer, colour);
+    }
+    if(this.#trackingPuppet){
+      this.addHLRLayerAndSrc();
     }
 
   }
