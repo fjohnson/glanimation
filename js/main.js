@@ -3,8 +3,8 @@ const map = new mapboxgl.Map({
   container: 'map', // container ID
   // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
   style: 'mapbox://styles/mapbox/light-v11', // style URL
-  center: [-83.926, 43.433], // starting position [lng, lat]
-  zoom: 5 // starting zoom
+  center: [-83.854, 44.65], // starting position [lng, lat]
+  zoom: 6 // starting zoom
 });
 
 const routeMap = {};
@@ -440,41 +440,32 @@ map.on('load', () => {
 
 class Puppet{
   #coordinates;
-  #nextCordInd;
+  #cordIdx;
 
   vesselInfo;
   name;
-  nextPosition;
   curPosition;
   isDone;
-  constructor(feature, vesselInfo, offset=0){
+  constructor(feature, vesselInfo){
     this.#coordinates = turf.coordAll(feature);
-    this.#nextCordInd = 1;
-    this.curPosition = null;
+    this.#cordIdx = 0;
+    this.curPosition = this.#coordinates[0];
     this.name = vesselInfo['Name of Vessel'];
     this.isDone = false;
     this.vesselInfo = vesselInfo;
-
-    if(offset >= this.#coordinates.length){
-      /*FIXME, this means that this puppet is going to share the same starting position
-      * on the map as another puppet and will be obscured. Use turf.along to generate new points??
-      * Is this fixed?? See function PuppetMaster.addVesselsToLists()
-      */
-      offset = 0;
-    }
-    this.nextPosition = this.#coordinates[offset];
-
-
   }
 
+  setOffset(offset){
+    this.#cordIdx = offset;
+    this.curPosition = this.#coordinates[offset];
+  }
   advance() {
-    if (this.#nextCordInd < this.#coordinates.length) {
-      this.curPosition = this.nextPosition;
-      this.nextPosition = this.#coordinates[this.#nextCordInd++];
-      return false;
+    if (this.#cordIdx < this.#coordinates.length) {
+      this.curPosition = this.#coordinates[this.#cordIdx++];
     }
-    this.isDone = true;
-    return true;
+    else{
+      this.isDone = true;
+    }
   }
 
   get numPositions(){
@@ -486,8 +477,8 @@ class Puppet{
   }
 
   get coordsProgress(){
-    let doneCoords = this.#coordinates.slice(0,this.#nextCordInd);
-    let remainingCoords = this.#coordinates.slice(this.#nextCordInd);
+    let doneCoords = this.#coordinates.slice(0,this.#cordIdx);
+    let remainingCoords = this.#coordinates.slice(this.#cordIdx);
 
     /*
       Need these conditionals because linestrings must always have two points
@@ -495,7 +486,7 @@ class Puppet{
       or the ship is basically finished its voyage.
      */
     if(doneCoords.length<2){
-      doneCoords = turf.lineString(this.#coordinates.slice(0,this.#nextCordInd+1));
+      doneCoords = turf.lineString(this.#coordinates.slice(0,this.#cordIdx+1));
     }
     else{
       doneCoords = turf.lineString(doneCoords);
@@ -616,8 +607,8 @@ class PuppetMaster {
       }
     });
   }
-  addPuppet(vessel, list, offset){
-    const name = vessel['Name of Vessel'];
+  addPuppet(vesselInfo){
+    const name = vesselInfo['Name of Vessel'];
 
     if (map.getSource(name) !== undefined){
       /*FIXME: Needed right now to prevent the same ship from existing on the map at the same time
@@ -627,11 +618,20 @@ class PuppetMaster {
      indicative of real life.*/
       return;
     }
-    const routeName = `${vessel['Where From']}+${vessel['Where Bound']}`;
+    const routeName = `${vesselInfo['Where From']}+${vesselInfo['Where Bound']}`;
     const feature = routeMap[routeName];
-    const puppet = new Puppet(feature, vessel, offset);
+    const puppet = new Puppet(feature, vesselInfo);
 
-    list.push(puppet);
+    if(vesselInfo['Vessel Type'] === 'Schooner'){
+      this.#puppets.slow.push(puppet);
+    }
+    else if (vesselInfo['Vessel Type'] === 'Barkentine' || vesselInfo['Vessel Type'] === 'Brigantine') {
+      this.#puppets.medium.push(puppet);
+    }
+    else{
+      this.#puppets.fast.push(puppet);
+    }
+    return puppet;
   }
   findPuppet(mouseCoord, listName){
     //Find the puppet whose position is closest to the mouse.
@@ -644,8 +644,8 @@ class PuppetMaster {
         //Don't look up vessels that are no longer on the map
         return;
       }
-      const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
-      const distance = turf.distance(mcPoint, turf.point(pPoint));
+
+      const distance = turf.distance(mcPoint, turf.point(puppet.curPosition));
       if(minimumDistance === null || minimumDistance > distance){
         closest = puppet
         minimumDistance = distance;
@@ -674,7 +674,7 @@ class PuppetMaster {
 
     map.addSource(this.#sourceDone, {
       "type": "geojson",
-      "data": turf.lineString(this.#trackingPuppet.nextPosition)
+      "data": turf.lineString(this.#trackingPuppet.curPosition)
     });
 
     map.addLayer({
@@ -763,12 +763,11 @@ class PuppetMaster {
 
         const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
         const puppet = this.findPuppet(mousePoint, layer);
-        const pPoint = puppet.curPosition !== null ? puppet.curPosition : puppet.nextPosition;
         const vi = puppet.vesselInfo;
 
-        const barkentineSVG = "https://upload.wikimedia.org/wikipedia/commons/f/f1/Sail_plan_barquentine.svg";
-        const schoonerSVG = "https://upload.wikimedia.org/wikipedia/commons/e/e1/Sail_plan_schooner.svg";
-        const propellerImg = "https://tinyurl.com/yc4c7555";
+        const barkentineSVG = "data/Sail_plan_barquentine.svg";
+        const schoonerSVG = "data/Sail_plan_schooner.svg";
+        const propellerImg = "data/propeller.jpg";
         const vesselType = vi['Vessel Type'].trim().toLowerCase();
 
         let vesselImg;
@@ -790,10 +789,10 @@ class PuppetMaster {
         let nationalityImg;
 
         if(nationality === "american"){
-          nationalityImg = "https://tinyurl.com/22a9e7k4";
+          nationalityImg = "data/Flag_of_the_United_States.svg";
         }
         else if(nationality === "british"){
-          nationalityImg = "https://tinyurl.com/mryhtu6t";
+          nationalityImg = "data/Flag_of_the_United_Kingdom.svg";
         }
         else{
           nationalityImg = null;
@@ -821,7 +820,7 @@ class PuppetMaster {
         //it actually calls fire() on the popup object which then locates
         //the 'close' listener and executes it. this all happens synchronously
         //so addTo can be seen as calling the 'close' listener synchronously
-        popup.setLngLat(pPoint).setHTML(description).addTo(map);
+        popup.setLngLat(puppet.curPosition).setHTML(description).addTo(map);
 
         this.#trackingPuppet = puppet;
         const puppetCoords = puppet.coordsGeoJson.geometry.coordinates;
@@ -854,9 +853,10 @@ class PuppetMaster {
 
       let collisionMap = new Map();
       while ((this.#curIndex < this.#manifest.length) && this.#manifest[this.#curIndex].Date.isSame(this.#date)) {
-        const v = this.#manifest[this.#curIndex];
-        const from = v['Where From'];
-        !collisionMap.has(from) ? collisionMap.set(from,[v]) : collisionMap.get(from).push(v);
+        const vesselInfo = this.#manifest[this.#curIndex];
+        const puppet = this.addPuppet(vesselInfo);
+        const from = vesselInfo['Where From'];
+        !collisionMap.has(from) ? collisionMap.set(from,[puppet]) : collisionMap.get(from).push(puppet);
         this.#curIndex++;
       }
 
@@ -867,24 +867,31 @@ class PuppetMaster {
       * points than available starting positions.
       * */
       const compareFn = (a,b) => {
-        return b.numPositions - a.numPositions;
+        return a.numPositions - b.numPositions;
       }
 
-      for(const collisions of [...collisionMap.values()].sort(compareFn)){
-        let offset = 0;
-        collisions.forEach((v)=>{
-          if (v['Vessel Type'] === 'Schooner') {
-            this.addPuppet(v, this.#puppets.slow, offset);
-          } else if (v['Vessel Type'] === 'Barkentine' || v['Vessel Type'] === 'Brigantine') {
-            this.addPuppet(v, this.#puppets.medium, offset);
-          } else {
-            this.addPuppet(v, this.#puppets.fast, offset);
+
+      for(const collisions of [...collisionMap.values()]){
+        if(collisions.length > 1){
+          const offsetDistance = 10; //arbitrary spacing number
+          let offset = 0;
+          const sortedCollisions = collisions.sort(compareFn);
+          for(let i = 1; i<sortedCollisions.length; i++){
+            let puppet = sortedCollisions[i];
+            if(offset+offsetDistance >= puppet.numPositions){
+              //Method of spacing if the offset+offsetDistance would be > last possible (indexable) position
+              offset += Math.floor(Math.abs(offset - (puppet.numPositions-1))/2);
+            }
+            else{
+              offset += offsetDistance;
+            }
+            puppet.setOffset(offset);
           }
-          offset++;
-        });
+        }
       }
 
       // Don't change the date if we have finished iterating through the manifest
+      // This happens at the end of the animation
       if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
         document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
         this.#date = this.#date.add(1, 'day');
@@ -925,7 +932,7 @@ class PuppetMaster {
 
       puppetList.forEach((puppet)=>{
         if(!puppet.isDone) {
-          curPositions.push(puppet.nextPosition);
+          curPositions.push(puppet.curPosition);
           puppet.advance();
         }
       });
