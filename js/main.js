@@ -869,6 +869,9 @@ class PuppetMaster {
 
         if(!this.#isPaused) {
           this.addTrackerTimer();
+        }else{
+          //Do this so completion data shows up properly when paused
+          this.setRouteCompletionData(puppet);
         }
       }
 
@@ -979,6 +982,13 @@ class PuppetMaster {
 
     }, delay);
   }
+  setRouteCompletionData(puppet){
+    const {done, remaining} = puppet.coordsProgress;
+    /*This may throw an error if the map's style has been changed but reinitLayers() has not executed yet
+    * In this case, the error is harmless and the data will be set once reinitLayers() is called*/
+    map.getSource(this.#sourceRemaining).setData(remaining);
+    map.getSource(this.#sourceDone).setData(done);
+  }
   addTrackerTimer(delay=10){
     let puppet = this.#trackingPuppet;
     let paused = false;
@@ -992,11 +1002,7 @@ class PuppetMaster {
         map.panTo(puppet.curPosition, {duration:250});
         this.#popup.setLngLat(puppet.curPosition);
 
-        const {done, remaining} = puppet.coordsProgress;
-        /*This may throw an error if the map's style has been changed but reinitLayers() has not executed yet
-        * In this case, the error is harmless and the data will be set once reinitLayers() is called*/
-        map.getSource(this.#sourceRemaining).setData(remaining);
-        map.getSource(this.#sourceDone).setData(done);
+        this.setRouteCompletionData(puppet);
       }
     };
     this.#trackingTimer = setInterval(trackingFunc, delay);
