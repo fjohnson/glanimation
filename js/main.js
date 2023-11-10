@@ -64,6 +64,7 @@ map.on('load', () => {
    <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
   </button>
   <button id="terrain-btn" class="navigation-day-v1" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
+  <button id="focus-btn"><i class="fa-solid fa-binoculars"></i></button>
   <button id="debug-btn" title="Debug" aria-label="debug">
     <i class="fa-solid fa-bug-slash"></i>
   </debug>
@@ -118,6 +119,20 @@ map.on('load', async () => {
   const pauseButton = document.getElementById('pause-btn');
   const restartButton = document.getElementById('restart-btn')
   const speedButton = document.getElementById("speed-btn");
+  const focusButton = document.getElementById("focus-btn");
+
+  focusButton.addEventListener('click', ()=>{
+    focusButton.classList.toggle('focus-disabled');
+    puppeteer.toggleFocus();
+    let html;
+    if(focusButton.classList.contains('focus-disabled')){
+      html = '<img src=data/binoculars-solidr.png width="14"/>';
+    }else{
+      html = '<i class="fa-solid fa-binoculars"></i>';
+    }
+    focusButton.replaceChildren();
+    focusButton.insertAdjacentHTML('beforeend',html);
+  });
 
   pauseButton.addEventListener('click', ()=>{
     pauseButton.classList.toggle('pause');
@@ -538,6 +553,8 @@ class PuppetMaster {
   #zoomEndFunc = null;
   #trackingTimer = null;
   #trackingPuppet = null;
+  #focusOn = true;
+
   constructor(manifest) {
 
     this.#layers = ['slow','medium','fast'];
@@ -726,18 +743,21 @@ class PuppetMaster {
       let bboxPoly = turf.bboxPolygon(bbox);
       let result = turf.pointsWithinPolygon(points, bboxPoly);
 
+      //if puppet, marker start and end are not visible then zoom out once and stop
       if(result.features.length !== 3){
-        if(zoom !== minZoom && zoom !== maxZoom){
+        if(zoom === minZoom){
+          throw new Error("Marker and center point not visible at zoom 0");
+        }else{
           map.jumpTo({'center':puppetPosition, 'zoom':(zoom-1)});
           break;
-        }else{
-          throw new Error("Marker and center point not visible event at zoom 0 or 20");
         }
       }
       zoom++;
-    } while(zoom < maxZoom+1);
+    } while(zoom <= maxZoom);
   }
-
+  toggleFocus(){
+    this.#focusOn = !this.#focusOn;
+  }
   removeHLLayer(){
     this.#trackingPuppet = null;
     map.removeLayer(this.#layerRemaining);
@@ -842,7 +862,10 @@ class PuppetMaster {
         this.addHLRLayerAndSrc();
         this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(map);
         this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(map);
-        this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
+
+        if(this.#focusOn){
+          this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
+        }
 
         if(!this.#isPaused) {
           this.addTrackerTimer();
@@ -961,7 +984,7 @@ class PuppetMaster {
     let paused = false;
     const trackingFunc = ()=>{
       if(paused) return;
-      console.log('tick-tock');
+
       if(puppet.isDone){
         this.#popup.remove();
       }
