@@ -585,6 +585,18 @@ class PuppetMaster {
     return newObj;
   }
 
+  getVesselLayer(puppet){
+    if(puppet.vesselInfo['Vessel Type'] === 'Schooner'){
+      return this.#puppets.slow;
+    }
+    else if (puppet.vesselInfo['Vessel Type'] === 'Barkentine' || puppet.vesselInfo['Vessel Type'] === 'Brigantine') {
+      return this.#puppets.medium;
+    }
+    else{
+      return this.#puppets.fast;
+    }
+  }
+
   setSpeed(speed){
     this.#speedFactor = parseFloat(speed.slice(0,-1))
     if(!this.#isPaused){
@@ -622,16 +634,19 @@ class PuppetMaster {
     const feature = routeMap[routeName];
     const puppet = new Puppet(feature, vesselInfo);
 
-    if(vesselInfo['Vessel Type'] === 'Schooner'){
-      this.#puppets.slow.push(puppet);
-    }
-    else if (vesselInfo['Vessel Type'] === 'Barkentine' || vesselInfo['Vessel Type'] === 'Brigantine') {
-      this.#puppets.medium.push(puppet);
-    }
-    else{
-      this.#puppets.fast.push(puppet);
-    }
+    const vesselLayer = this.getVesselLayer(puppet);
+    vesselLayer.push(puppet);
     return puppet;
+  }
+  getCompletionDate(puppet){
+    let speedFactor;
+    const layer = this.getVesselLayer(puppet);
+    if(layer === this.#puppets.slow) speedFactor = this.#slowDelay;
+    else if(layer === this.#puppets.medium) speedFactor = this.#medDelay;
+    else if(layer === this.#puppets.fast) speedFactor = this.#fastDelay;
+    const numDays = Math.floor((puppet.numPositions * speedFactor) / this.#dayDelay);
+    return [numDays, puppet.vesselInfo.Date.add(numDays,'day').format('MMM DD YYYY')];
+
   }
   findPuppet(mouseCoord, listName){
     //Find the puppet whose position is closest to the mouse.
@@ -724,7 +739,6 @@ class PuppetMaster {
   }
 
   removeHLLayer(){
-    console.log('              ->removeHLLayer()');
     this.#trackingPuppet = null;
     map.removeLayer(this.#layerRemaining);
     map.removeLayer(this.#layerDone);
@@ -745,7 +759,6 @@ class PuppetMaster {
       maxWidth: 'none'
     });
     popup.on('close', () => {
-      console.log('popup close ->')
       this.removeHLLayer();
     });
 
@@ -758,7 +771,6 @@ class PuppetMaster {
 
     layerNames.forEach((layer)=>{
       const mouseDownListener = (e) => {
-        console.log('setupPopup mousedown');
         // Change the cursor style as a UI indicator.
 
         const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
@@ -769,6 +781,8 @@ class PuppetMaster {
         const schoonerSVG = "data/Sail_plan_schooner.svg";
         const propellerImg = "data/propeller.jpg";
         const vesselType = vi['Vessel Type'].trim().toLowerCase();
+        const departureDate = vi.Date.format('MMM DD YYYY');
+        const [duration,arrivalDate] = this.getCompletionDate(puppet);
 
         let vesselImg;
         if(vesselType === "schooner"){
@@ -812,6 +826,7 @@ class PuppetMaster {
             <div class=pbody-location>
               <p><em>${vi['Where From']}</em> to <em>${vi['Where Bound']}</em></p>
             </div>
+            <p>${departureDate} - ${arrivalDate}, ${duration} days</p>
             <p>${vi.Cargo.join(', ')}</p>
           </div>
         </div>`
