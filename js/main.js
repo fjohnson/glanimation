@@ -49,7 +49,7 @@ function elongatePaths(feature, segmentSize = 0.5){
 /*Add Map controls - pause, restart, speed, etc */
 map.on('load', () => {
 
-  map.addControl(new mapboxgl.FullscreenControl());
+  map.addControl(new mapboxgl.FullscreenControl({container: document.querySelector('body')}));
   // Add a map scale control to the map
   map.addControl(new mapboxgl.ScaleControl());
   // Add zoom and rotation controls to the map.
