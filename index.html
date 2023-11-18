@@ -34,11 +34,12 @@
 </head>
 
 <body>
+
   <!-- Mapbox specific tag-->
   <div id="map"></div>
   <p id="title">Shipping Through the Welland Canal</p>
   <p id="date">April 4 1854</p>
-  <div class="container">
+  <div class="legend-container glassmorphism">
     <p class="legend-header">Vessel Types</p>
     <div class="circle schooner"></div>
     <div class="circle barkentine-brigantine"></div>
@@ -46,6 +47,52 @@
     <p>Schooner</p>
     <p>Barkentine & Brigantine</p>
     <p>Propeller & Steamer</p>
+  </div>
+
+  <!-- Date selector -->
+  <div id="date-selector">
+    <div>
+      <div id="date-selector-bullet">Apr</div>
+      <input id="date-selector-input" type="range" value="0" min="0" max="35">
+      <div id=ticks-and-labels>
+        <span class=tick><span class=label>1</span></span>
+        <span class=tick><span class=label>2</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>1</span></span>
+        <span class=tick><span class=label>2</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>1</span></span>
+        <span class=tick><span class=label>2</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+        <span class=tick><span class=label>3</span></span>
+      </div>
+    </div>
   </div>
 
   <!--  Debug-->

@@ -98,6 +98,23 @@ map.on('load', () => {
     }
   });
 
+  const dateSlider = document.getElementById("date-selector-input");
+  const dateBullet = document.getElementById("date-selector-bullet");
+
+  dateSlider.addEventListener("input", showSliderValue, false);
+
+  function showSliderValue() {
+    const rangeInputVar = getComputedStyle(document.documentElement).getPropertyValue('--slider-width');
+    const thumbWidthVar = getComputedStyle(document.documentElement).getPropertyValue('--slider-thumb-width');
+    const rangeInputLength = rangeInputVar.slice(0,rangeInputVar.indexOf('vw'));
+    const thumbWidth = thumbWidthVar.slice(0,thumbWidthVar.indexOf('vw'));
+
+    // dateBullet.innerHTML = dateSlider.value;
+    dateBullet.innerHTML = 'Mar';
+    const bulletPosition = dateSlider.value / dateSlider.max;
+    dateBullet.style.left = (bulletPosition * (rangeInputLength - thumbWidth)) + "vw";
+  }
+
 });
 
 map.on('load', async () => {
