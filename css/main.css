@@ -267,10 +267,10 @@ body { margin: 0; padding: 0; }
 See: https://www.smashingmagazine.com/2021/12/create-custom-range-input-consistent-browsers/
 */
 :root {
-  --slider-width: 30vw;
+  --slider-width: 40vw;
   --track-height: 1rem;
   --slider-thumb-height: 1rem;
-  --slider-thumb-width: .75vw;
+  --slider-thumb-width: 1vw;
   --thumb-push-down: calc(var(--track-height)/2 - var(--slider-thumb-height)/2);
 }
 
@@ -360,27 +360,28 @@ span.tick{
 span.tick .label{
   margin-top: 10px;
   writing-mode: vertical-lr;
+  font-size:1vw;
 }
 
 #date-selector{
   position:absolute;
-  bottom:9%;
-  left:35vw; /*based on a --slider-width: of 30vw, this centers this element*/
+  bottom:5%;
+  left:calc((100vw - var(--slider-width))/2);
   display: flex;
   justify-content: center;
   font-family: Helvetica, sans-serif;
+  padding: 1rem 1rem 3rem;
 }
 
 
 #date-selector-bullet{
   position: relative;
-  border: 1px solid;
-  border-radius:50%;
-  width: 2rem;
+  width: 2vw;
   text-align: center;
   margin-bottom:10px;
   padding:2px;
-  margin-left:-1rem;
+  margin-left:clamp(-.85vw,-.7vw,-.65vw);
+  font-size:1vw;
 }
 
 /*Start DEBUG styles*/
