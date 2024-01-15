@@ -101,7 +101,7 @@ map.on('load', () => {
   const dateSlider = document.getElementById("date-selector-input");
   const dateBullet = document.getElementById("date-selector-bullet");
 
-  dateSlider.addEventListener("input", showSliderValue, false);
+  dateSlider.addEventListener("change", showSliderValue, false);
 
   function showSliderValue() {
     const rangeInputVar = getComputedStyle(document.documentElement).getPropertyValue('--slider-width');
@@ -109,10 +109,17 @@ map.on('load', () => {
     const rangeInputLength = rangeInputVar.slice(0,rangeInputVar.indexOf('vw'));
     const thumbWidth = thumbWidthVar.slice(0,thumbWidthVar.indexOf('vw'));
 
-    // dateBullet.innerHTML = dateSlider.value;
-    dateBullet.innerHTML = 'Mar';
-    const bulletPosition = dateSlider.value / dateSlider.max;
+    dateBullet.innerHTML = sliderIntToMonth(parseInt(dateSlider.value));
+
+    const bulletPosition = parseInt(dateSlider.value) / parseInt(dateSlider.max);
     dateBullet.style.left = (bulletPosition * (rangeInputLength - thumbWidth)) + "vw";
+  }
+  function sliderIntToMonth(valueInt){
+    const year = 1854 + Math.floor(valueInt/12);
+    const month = (valueInt % 12);
+
+    //Do this because I don't want to define a map from int->month
+    return dayjs().set('year',year).set('month',month).set('date',1).format('MMM');
   }
 
 });
@@ -204,6 +211,14 @@ map.on('load', async () => {
   });
 
   puppeteer.play();
+
+  window.addEventListener('keydown', function(event) {
+    // Handle the keypress event here
+    if(event.key === "s"){
+      puppeteer.changeDate();
+    }
+
+  });
 });
 
 //DEBUG of location estimation
@@ -795,6 +810,8 @@ class PuppetMaster {
       closeOnClick: false,
       maxWidth: 'none'
     });
+
+    //this is called also when this.#popup.remove() is called.
     popup.on('close', () => {
       this.removeHLLayer();
     });
@@ -872,6 +889,7 @@ class PuppetMaster {
         //it actually calls fire() on the popup object which then locates
         //the 'close' listener and executes it. this all happens synchronously
         //so addTo can be seen as calling the 'close' listener synchronously
+        //Also when a "close" event is generated, removeHLLayer() is called.
         popup.setLngLat(puppet.curPosition).setHTML(description).addTo(map);
 
         this.#trackingPuppet = puppet;
@@ -887,7 +905,8 @@ class PuppetMaster {
         if(!this.#isPaused) {
           this.addTrackerTimer();
         }else{
-          //Do this so completion data shows up properly when paused
+          //Do this so completion data shows up properly when paused but disable tracking so
+          //the user can still scroll around
           this.setRouteCompletionData(puppet);
         }
       }
@@ -952,6 +971,15 @@ class PuppetMaster {
       // This happens at the end of the animation
       if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
         document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
+
+        //Update date slider every first of the month
+        if(this.#date.get('date')===1){
+          const dateSlider = document.getElementById('date-selector-input');
+          //FIXME Need to convert date to dateslider value, not just add value of 1.
+          dateSlider.value = (parseInt(dateSlider.value) + 1).toString();
+          dateSlider.dispatchEvent(new Event('change'));
+        }
+
         this.#date = this.#date.add(1, 'day');
       }
     }.bind(this);
@@ -1071,11 +1099,10 @@ class PuppetMaster {
     for(const [event, layer, func] of this.#listenerList){
       map.off(event, layer, func);
     }
-    Object.keys(this.#puppets).forEach((name)=>{
+    for(const name of this.#layers){
       map.removeLayer(name);
       map.removeSource(name);
-    });
-
+    }
   }
 
   /*When a style is changed all sources/layers are removed. This adds them back*/
@@ -1092,7 +1119,29 @@ class PuppetMaster {
     if(this.#trackingPuppet){
       this.addHLRLayerAndSrc();
     }
+  }
 
+  changeDate(){
+    /**
+     * Pause - clear timers
+     * Clear puppet lists
+     * Clear layers
+     * Change date (title)
+     * change this#.curIndex to match this.#manifest date
+     * Remove tracking puppet popup, distance layers, zoomfix, tracking timer
+     */
+    this.pause();
+    this.#puppets = this.getObject(this.#layers,[[],[],[]]);
+    this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
+
+    if(this.#trackingPuppet){
+      this.#popup.remove();
+    }
+
+    //For now as testing set date to be first date
+    this.#date = this.#manifest[0].Date;
+    this.#curIndex = 0;
+    this.play();
   }
 }
 
