@@ -268,9 +268,13 @@ See: https://www.smashingmagazine.com/2021/12/create-custom-range-input-consiste
 */
 :root {
   --slider-width: 40vw;
+  --slider-track-color: #1da1f2;
   --track-height: 1rem;
   --slider-thumb-height: 1rem;
   --slider-thumb-width: 1vw;
+  --slider-thumb-color: #0862a1;
+  --slider-thumb-border-radius: 0.5rem;
+  --slider-thumb-border: 3px solid var(--slider-track-color);
   --thumb-push-down: calc(var(--track-height)/2 - var(--slider-thumb-height)/2);
 }
 
@@ -292,7 +296,7 @@ input[type="range"]:focus {
 /******** Chrome, Safari, Opera and Edge Chromium styles ********/
 /* slider track */
 input[type="range"]::-webkit-slider-runnable-track {
-  background-color: #add8e6;
+  background-color: var(--slider-track-color);
   border-radius: 0.5rem;
   height: var(--track-height);
 }
@@ -302,36 +306,38 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; /* Override default look */
   appearance: none;
   margin-top: var(--thumb-push-down); /* Centers thumb on the track */
-  background-color: #dfcbaa;
-  border-radius: 0.5rem;
+  background-color: var(--slider-thumb-color);
+  border:var(--slider-thumb-border);
+  border-radius: var(--slider-thumb-border-radius);
   height: var(--slider-thumb-height);
   width: var(--slider-thumb-width);
 }
 
 input[type="range"]:focus::-webkit-slider-thumb {
-  outline: 3px solid #dfcbaa;
+  outline: 3px solid var(--slider-thumb-color);
   outline-offset: 0.125rem;
 }
 
-/*********** Firefox styles ***********/
+/*!*********** Firefox styles ***********!*/
 /* slider track */
 input[type="range"]::-moz-range-track {
-  background-color: #add8e6;
+  background-color: var(--slider-track-color);
   border-radius: 0.5rem;
   height: var(--track-height);
 }
 
 /* slider thumb */
 input[type="range"]::-moz-range-thumb {
-  background-color: #dfcbaa;
-  border: none; /*Removes extra border that FF applies*/
-  border-radius: 0.5rem;
+  background-color: var(--slider-thumb-color);
+  /*border: none; !*Removes extra border that FF applies*!*/
+  border:var(--slider-thumb-border);
+  border-radius: var(--slider-thumb-border-radius);
   height: var(--slider-thumb-height);
   width: var(--slider-thumb-width);
 }
 
 input[type="range"]:focus::-moz-range-thumb{
-  outline: 3px solid #dfcbaa;
+  outline: 3px solid var(--slider-thumb-color);
   outline-offset: 0.125rem;
 }
 
@@ -365,23 +371,12 @@ span.tick .label{
 
 #date-selector{
   position:absolute;
-  bottom:5%;
+  bottom:8%;
   left:calc((100vw - var(--slider-width))/2);
   display: flex;
   justify-content: center;
   font-family: Helvetica, sans-serif;
   padding: 1rem 1rem 3rem;
-}
-
-
-#date-selector-bullet{
-  position: relative;
-  width: 2vw;
-  text-align: center;
-  margin-bottom:10px;
-  padding:2px;
-  margin-left:clamp(-.85vw,-.7vw,-.65vw);
-  font-size:1vw;
 }
 
 /*Start DEBUG styles*/

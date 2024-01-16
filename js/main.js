@@ -97,31 +97,6 @@ map.on('load', () => {
       }
     }
   });
-
-  const dateSlider = document.getElementById("date-selector-input");
-  const dateBullet = document.getElementById("date-selector-bullet");
-
-  dateSlider.addEventListener("change", showSliderValue, false);
-
-  function showSliderValue() {
-    const rangeInputVar = getComputedStyle(document.documentElement).getPropertyValue('--slider-width');
-    const thumbWidthVar = getComputedStyle(document.documentElement).getPropertyValue('--slider-thumb-width');
-    const rangeInputLength = rangeInputVar.slice(0,rangeInputVar.indexOf('vw'));
-    const thumbWidth = thumbWidthVar.slice(0,thumbWidthVar.indexOf('vw'));
-
-    dateBullet.innerHTML = sliderIntToMonth(parseInt(dateSlider.value));
-
-    const bulletPosition = parseInt(dateSlider.value) / parseInt(dateSlider.max);
-    dateBullet.style.left = (bulletPosition * (rangeInputLength - thumbWidth)) + "vw";
-  }
-  function sliderIntToMonth(valueInt){
-    const year = 1854 + Math.floor(valueInt/12);
-    const month = (valueInt % 12);
-
-    //Do this because I don't want to define a map from int->month
-    return dayjs().set('year',year).set('month',month).set('date',1).format('MMM');
-  }
-
 });
 
 map.on('load', async () => {
@@ -144,6 +119,7 @@ map.on('load', async () => {
   const restartButton = document.getElementById('restart-btn')
   const speedButton = document.getElementById("speed-btn");
   const focusButton = document.getElementById("focus-btn");
+  const dateSlider = document.getElementById("date-selector-input");
 
   focusButton.addEventListener('click', ()=>{
     focusButton.classList.toggle('focus-disabled');
@@ -202,6 +178,10 @@ map.on('load', async () => {
         break;
       }
     }
+  });
+
+  dateSlider.addEventListener("change", (event)=>{
+    puppeteer.changeDate(parseInt(event.target.value));
   });
 
   map.on('styledata', () => {
@@ -975,9 +955,7 @@ class PuppetMaster {
         //Update date slider every first of the month
         if(this.#date.get('date')===1){
           const dateSlider = document.getElementById('date-selector-input');
-          //FIXME Need to convert date to dateslider value, not just add value of 1.
           dateSlider.value = (parseInt(dateSlider.value) + 1).toString();
-          dateSlider.dispatchEvent(new Event('change'));
         }
 
         this.#date = this.#date.add(1, 'day');
@@ -1121,15 +1099,23 @@ class PuppetMaster {
     }
   }
 
-  changeDate(){
+  changeDate(inputValue){
     /**
      * Pause - clear timers
      * Clear puppet lists
      * Clear layers
+     * Remove tracking puppet popup, distance layers, zoomfix, tracking timer
      * Change date (title)
      * change this#.curIndex to match this.#manifest date
-     * Remove tracking puppet popup, distance layers, zoomfix, tracking timer
      */
+
+    //inputValue = some number between 0-32 (number of selectable months)
+    //but since the first selectable date is actually april, instead of jan
+    //add +3 to offset and reflect this
+    inputValue += 3;
+    const year = 1854 + Math.floor(inputValue/12);
+    const month = inputValue % 12;
+
     this.pause();
     this.#puppets = this.getObject(this.#layers,[[],[],[]]);
     this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
@@ -1138,9 +1124,33 @@ class PuppetMaster {
       this.#popup.remove();
     }
 
-    //For now as testing set date to be first date
-    this.#date = this.#manifest[0].Date;
-    this.#curIndex = 0;
+    //This if statement is necessary while we are still waiting on data for 1855/1856
+    const dateSlider = document.getElementById('date-selector-input');
+    if(year>1854){
+      this.#curIndex = this.#manifest.length-1;
+      this.#date = this.#manifest[this.#curIndex].Date;
+      dateSlider.value = "7";
+    }
+    else{
+      this.#curIndex = 0;
+      for(let manifestEntry of this.#manifest){
+        if(manifestEntry.Date.month() === month && manifestEntry.Date.year() === year){
+          this.#date = this.#manifest[this.#curIndex].Date;
+
+          if(this.#date.date()===1){
+            //necessary because when resumed a timer in the background will see that
+            //it's the first of the month and auto increment the dateSlider value;
+            //sigh, this is a cheap fix.
+            dateSlider.value = (parseInt(dateSlider.value) - 1).toString();
+          }
+          break;
+        }
+        else{
+          this.#curIndex++;
+        }
+      }
+    }
+
     this.play();
   }
 }
