@@ -271,7 +271,7 @@ See: https://www.smashingmagazine.com/2021/12/create-custom-range-input-consiste
   --slider-track-color: #1da1f2;
   --track-height: 1rem;
   --slider-thumb-height: 1rem;
-  --slider-thumb-width: 1vw;
+  --slider-thumb-width: .9vw;
   --slider-thumb-color: #0862a1;
   --slider-thumb-border-radius: 0.5rem;
   --slider-thumb-border: 3px solid var(--slider-track-color);
