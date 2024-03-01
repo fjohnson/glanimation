@@ -2,7 +2,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiZmpvaG5zODg4IiwiYSI6ImNsaGh6eXo1dDAzMDMzbW1td
 const map = new mapboxgl.Map({
   container: 'map', // container ID
   // Choose from Mapbox's core styles, or make your own style with Mapbox Studio
-  style: 'mapbox://styles/mapbox/light-v11', // style URL
+  style: 'mapbox://styles/fjohns888/clt8v4v3z00ct01qk2h369tp4',
   center: [-83.854, 44.65], // starting position [lng, lat]
   zoom: 6 // starting zoom
 });
@@ -49,6 +49,7 @@ function elongatePaths(feature, segmentSize = 0.5){
 /*Add Map controls - pause, restart, speed, etc */
 map.on('load', () => {
 
+
   map.addControl(new mapboxgl.FullscreenControl({container: document.querySelector('body')}));
   // Add a map scale control to the map
   map.addControl(new mapboxgl.ScaleControl());
@@ -63,36 +64,46 @@ map.on('load', () => {
   <button id="speed-btn" class="fa-layers fa-fw 1x" title="Adjust speed">
    <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
   </button>
-  <button id="terrain-btn" class="navigation-day-v1" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
+  <button id="terrain-btn" class="clt8v4v3z00ct01qk2h369tp4" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
   <button id="focus-btn"><i class="fa-solid fa-binoculars"></i></button>
   <button id="debug-btn" title="Debug" aria-label="debug">
     <i class="fa-solid fa-bug-slash"></i>
-  </debug>
-</div>`
+  </button>
+  <button id="calendar-btn">
+    <i class="fa-solid fa-calendar-days"></i>
+  </button>
+  <div id="date-slider"></div>
+  </div>`
   cctr.insertAdjacentHTML('beforeend',html);
+  //<div id="react-dialog"></div>
+  // webpackExports.createDateRange(document.getElementById("react-dialog"));
+
+  webpackExports.createVerticalSlider(document.getElementById("date-slider"));
+  const calBtn = document.getElementById('calendar-btn');
+  calBtn.addEventListener("click", ()=>{
+
+    const dateSlider = document.getElementById("date-slider");
+    if(dateSlider.style.display === 'none'){
+      dateSlider.style.display = 'block';
+    }
+    else{
+      dateSlider.style.display = 'none';
+    }
+  });
 
   const tbtn = document.getElementById('terrain-btn');
   tbtn.addEventListener("click", ()=>{
     const cycle = new Map([
-      ["light-v11","navigation-day-v1"],["navigation-day-v1","streets-v12",],
-      ["streets-v12","satellite-streets-v12"],["satellite-streets-v12","outdoors-v12"],
-      ["outdoors-v12","light-v11"]]);
+      ["clt8v4v3z00ct01qk2h369tp4","clt8uqlim00cp01qkewtm6jf8"],["clt8uqlim00cp01qkewtm6jf8","clt8uc45s00cl01qk70jn32y3",],
+      ["clt8uc45s00cl01qk70jn32y3","clt8u4m2j005401p3999b6t6s"],["clt8u4m2j005401p3999b6t6s","clt8tdpi500pn01qpdncycb5o"],
+      ["clt8tdpi500pn01qpdncycb5o","clt8v4v3z00ct01qk2h369tp4"]]);
 
     for(let current of tbtn.classList.values()){
       if(cycle.has(current)){
         const styleNow = cycle.get(current);
-        map.setStyle('mapbox://styles/mapbox/' + styleNow);
+        map.setStyle('mapbox://styles/fjohns888/' + styleNow);
         tbtn.classList.toggle(current);
         tbtn.classList.toggle(styleNow);
-
-        if(styleNow === 'satellite-streets-v12'){
-          document.getElementById("date").style.color = "#fff";
-          document.getElementById("title").style.color = "#fff";
-        }
-        else{
-          document.getElementById("date").style.color = "black";
-          document.getElementById("title").style.color = "black";
-        }
         break;
       }
     }
