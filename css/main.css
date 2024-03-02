@@ -242,9 +242,6 @@ body { margin: 0; padding: 0; }
 
 #date-slider {
   display: none;
-  /*position:absolute;*/
-  /*left:5%;*/
-  /*top:20%;*/
 }
 /*End React based calendar styles*/
 

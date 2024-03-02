@@ -23,6 +23,7 @@ function DateRangeDialog() {
 
   function handleClickOpen(){
     setOpen(true);
+
   }
 
   function handleClose(){
