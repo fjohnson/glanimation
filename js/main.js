@@ -69,27 +69,11 @@ map.on('load', () => {
   <button id="debug-btn" title="Debug" aria-label="debug">
     <i class="fa-solid fa-bug-slash"></i>
   </button>
-  <button id="calendar-btn">
-    <i class="fa-solid fa-calendar-days"></i>
-  </button>
-  <div id="date-slider"></div>
+  <div id="react-dialog"></div>
   </div>`
   cctr.insertAdjacentHTML('beforeend',html);
-  //<div id="react-dialog"></div>
-  // webpackExports.createDateRange(document.getElementById("react-dialog"));
 
-  webpackExports.createVerticalSlider(document.getElementById("date-slider"));
-  const calBtn = document.getElementById('calendar-btn');
-  calBtn.addEventListener("click", ()=>{
-
-    const dateSlider = document.getElementById("date-slider");
-    if(dateSlider.style.display === 'none'){
-      dateSlider.style.display = 'block';
-    }
-    else{
-      dateSlider.style.display = 'none';
-    }
-  });
+  webpackExports.createDateRange(document.getElementById("react-dialog"));
 
   const tbtn = document.getElementById('terrain-btn');
   tbtn.addEventListener("click", ()=>{
@@ -570,8 +554,8 @@ class PuppetMaster {
   #sourceDone = 'hlRouteDoneSrc';
   #layerRemaining = 'hlRouteRemainingLayer';
   #layerDone = 'hlRouteDoneLayer';
-  #markerStart = new mapboxgl.Marker({'color':'green'});
-  #markerEnd = new mapboxgl.Marker({'color':'red'});
+  #markerStart = new mapboxgl.Marker({'color':'darkolivegreen'});
+  #markerEnd = new mapboxgl.Marker({'color':'firebrick'});
   #zoomStartFunc = null;
   #zoomEndFunc = null;
   #trackingTimer = null;
@@ -722,7 +706,7 @@ class PuppetMaster {
       'source': this.#sourceRemaining,
       'layout': {},
       'paint': {
-        'line-color': 'yellow',
+        'line-color': 'gold',
         'line-opacity': 0.75,
         'line-width': 5
       }});
@@ -738,7 +722,7 @@ class PuppetMaster {
       'source': this.#sourceDone,
       'layout': {},
       'paint': {
-        'line-color': 'blue',
+        'line-color': 'royalblue',
         'line-opacity': 0.75,
         'line-width': 5
       }
