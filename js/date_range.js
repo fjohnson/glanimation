@@ -5,11 +5,26 @@ import '@iroomit/react-date-range/dist/styles.css'; // main css file
 import '@iroomit/react-date-range/dist/theme/default.css'; // theme css file
 import { DateRangePicker } from '@iroomit/react-date-range';
 import { useState } from 'react';
+import { eachDayOfInterval } from "date-fns";
 
-export const dateRangeValues = {};
+export const callbackContainer = [];
 export function createDateRange(parent){
   createRoot(parent).render(<DateRangeDialog/>);
 }
+
+const config = { attributes: false, childList: true, subtree: false };
+const callback = (mutationList, observer) => {
+  for (const mutation of mutationList) {
+    if (mutation.type === "childList") {
+      console.log("A child node has been added or removed.");
+      const targetNode = document.querySelector("span.rdrYearPicker");
+      // console.log(targetNode.children[0].children);
+    }
+  }
+};
+const observer = new MutationObserver(callback);
+
+let dateSelection = null;
 function DateRangeDialog() {
   const [state, setState] = useState([
     {
@@ -22,18 +37,34 @@ function DateRangeDialog() {
   const [open, setOpen] = useState(false);
 
   function handleClickOpen(){
+    let puppetMaster = callbackContainer[0];
+    puppetMaster.pause();
+    const targetNode = document.querySelector("body");
+    observer.observe(targetNode, config);
     setOpen(true);
-
   }
 
   function handleClose(){
+    let puppetMaster = callbackContainer[0];
+    puppetMaster.changeDate(dateSelection);
+    observer.disconnect();
     setOpen(false);
   }
 
   function handleSelection(item){
-    dateRangeValues.selection = item.selection;
     setState([item.selection]);
+    dateSelection = item.selection;
   }
+
+  const disabledDates = eachDayOfInterval({
+    start: new Date(1854, 0, 1),
+    end: new Date(1854, 3, 3)
+  }).concat(
+    eachDayOfInterval({
+      start: new Date(1855, 0, 1),
+      end: new Date(1855, 11, 31)
+    })
+  );
 
   return (
     <React.Fragment>
@@ -49,12 +80,12 @@ function DateRangeDialog() {
         onChange={handleSelection}
         months={1}
         minDate={new Date(1854,3,1)}
-        maxDate={new Date(1854,11,31)}
+        maxDate={new Date(1876,11,31)}
         direction="vertical"
         scroll={{ enabled: true }}
         ranges={state}
         showDateDisplay={false}
-        // showMonthArrow={false}
+        disabledDates={disabledDates}
       />
     </Dialog>
   </React.Fragment>

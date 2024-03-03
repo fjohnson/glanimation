@@ -21,7 +21,7 @@ map.on('load', () => {
   const mbglcc = document.getElementsByClassName("mapboxgl-control-container")[0];
   const cctr = mbglcc.getElementsByClassName("mapboxgl-ctrl-top-right")[0];
   const html = `<div class="mapboxgl-ctrl mapboxgl-ctrl-group">
-  <button id="pause-btn" aria-label="play" title="Playing"><i class="fa-solid fa-pause"></i></button>
+  <button id="pause-btn" aria-label="play" title="Pause"><i class="fa-solid fa-pause"></i></button>
   <button id="restart-btn" aria-label="restart" title="Restart"><i class="fa-solid fa-rotate-left"></i></button>
   <button id="speed-btn" class="fa-layers fa-fw 1x" title="Adjust speed">
    <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
@@ -55,7 +55,7 @@ map.on('load', () => {
     }
   });
 });
-export let puppeteer;
+
 map.on('load', async () => {
 
   const response = await fetch(
@@ -66,13 +66,14 @@ map.on('load', async () => {
   for(let vessel of data['manifest']){
     vessel['Date'] = dayjs(vessel['Date']);
   }
-  puppeteer = new PuppetMaster(data, map);
+  let puppeteer = new PuppetMaster(data, map);
+  webpackExports.callbackContainer.push(puppeteer);
 
   const pauseButton = document.getElementById('pause-btn');
   const restartButton = document.getElementById('restart-btn')
   const speedButton = document.getElementById("speed-btn");
   const focusButton = document.getElementById("focus-btn");
-  const dateSlider = document.getElementById("date-selector-input");
+
 
   focusButton.addEventListener('click', ()=>{
     focusButton.classList.toggle('focus-disabled');
@@ -88,9 +89,8 @@ map.on('load', async () => {
   });
 
   pauseButton.addEventListener('click', ()=>{
-    pauseButton.classList.toggle('pause');
     let html;
-    if (pauseButton.classList.contains('pause')) {
+    if (!puppeteer.isPaused()) {
       puppeteer.pause();
       html = '<i class="fa-solid fa-play"></i>';
       pauseButton.setAttribute('title','Play');
@@ -106,6 +106,8 @@ map.on('load', async () => {
   restartButton.addEventListener('click', ()=>{
     puppeteer.die();
     puppeteer = new PuppetMaster(data, map);
+    webpackExports.callbackContainer.pop();
+    webpackExports.callbackContainer.push(puppeteer);
 
     if(pauseButton.classList.contains('pause')){
       //If the button is paused on restart, change its state to playing
@@ -133,10 +135,6 @@ map.on('load', async () => {
     }
   });
 
-  dateSlider.addEventListener("change", (event)=>{
-    puppeteer.changeDate(parseInt(event.target.value));
-  });
-
   map.on('styledata', () => {
     //This event is emitted the first time the map is loaded
     //and whenever the style is changed (happening multiple times apparently)
@@ -145,12 +143,6 @@ map.on('load', async () => {
 
   puppeteer.play();
 
-  window.addEventListener('keydown', function(event) {
-    // Handle the keypress event here
-    if(event.key === "s"){
-      puppeteer.changeDate();
-    }
-  });
 });
 
 //DEBUG of location estimation
