@@ -1,0 +1,11 @@
+name: build-and-deploy
+run-name: ${{ github.actor }} is building and deploying glanimation
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm install
+      - run: npx webpack
