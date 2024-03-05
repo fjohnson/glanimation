@@ -14,4 +14,11 @@ After running the notebook the output should be placed in data/. Here is a descr
  - *data/debug.json* - Locations described in the CSV are historical locations and not lon/lat specific locations. The [Mapbox geocoding API](https://docs.mapbox.com/api/search/geocoding/) is used to determine possible locations on the map that correspond to CSV locations. Of course this is not a fool proof process and so some locations are way off the mark.  Also, even if the locations are correct they may not reside on the paths specified in the geojson water_paths.json file. Hence this file is used for showing the difference between geocoded locations and where these locations are actually placed on the water_paths.json paths.
 
 ### Deploying
-There is nothing serverside in this code and everything is in the client. It can be deployed as a Github page or the repository can be cloned and served from a static location on a webserver. There is no build process or anything complex like that. The Jupyter notebook does not need to be run and no files need to be placed in *data/* as this has already been done. If on the other hand something changes in the original spreadsheets or *water_paths.json* needs to change, the notebook will need to be run again. 
+There is nothing serverside in this code and everything is in the client. It can be deployed as a Github page or the repository can be cloned and served from a static location on a webserver. The build process is pretty simple and involves...
+1. Check out code 
+2. Install `npm`
+3. Run `npm install` inside the repository directory
+4. Run `npx webpack` to build the required js bundle
+5. Deploy as a static site
+   
+The Jupyter notebook does not need to be run and no files need to be placed in *data/* as this has already been done. If on the other hand something changes in the original spreadsheets or *water_paths.json* needs to change, the notebook will need to be run again. 
