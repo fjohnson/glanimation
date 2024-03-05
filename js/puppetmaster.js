@@ -171,7 +171,7 @@ export class PuppetMaster {
 
     if (this.#map.getSource(name) !== undefined){
       /*FIXME: Needed right now to prevent the same ship from existing on the map at the same time
-     This happens when say ship A is placed on the map at date t2, then ship A is again
+     This happens when say ship A is placed on the map at date t1, then ship A is again
      placed on the map on date t2. Really, ship A should have been taken off the map before
      being added at t2, but the speed the at which ships are currently emulated is not 100%
      indicative of real life.*/
