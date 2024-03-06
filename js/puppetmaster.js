@@ -1,29 +1,27 @@
 import {Puppet} from './puppet.js';
 
 export class PuppetMaster {
-  #isPaused;
+  #isPaused = true;
   #manifest;
   #date;
-  #puppets;
+  #puppets = [];
   #puppetPositions;
-  #curIndex;
-  #timerSlow;
-  #timerMed;
-  #timerFast;
-  #dayTimer;
-  #dayDelay;
-  #slowDelay;
-  #medDelay;
-  #fastDelay;
+  #curIndex = 0;
+  #dayTimer = null;
+  #dayDelay = 2000;
   #listCleaner;
   #lastDate;
-  #layers;
-  #layerColours;
   #listenerList = [];
   #speedFactor = 1;
-  #routeMap;
+  #routeMap = {};
   #map;
   #pauseDate = null;
+  #puppetLayerName = 'puppets';
+  #repaintTimer = null;
+  #repaintDelay = 10;
+  #advanceTimer = null;
+  #advanceDelay = 10;
+
   //Variables relating to popup / route tracking
   #popup;
   #sourceRemaining = 'hlRouteRemainingSrc';
@@ -38,59 +36,35 @@ export class PuppetMaster {
   #trackingPuppet = null;
   #focusOn = true;
 
-
   constructor(data, map) {
 
-    this.#layers = ['slow','medium','fast'];
-    this.#layerColours = this.getObject(this.#layers, ['#4264fb','green','purple']);
-    this.#puppets = this.getObject(this.#layers,[[],[],[]]);
-    this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
-    this.#timerSlow = null;
-    this.#timerMed = null;
-    this.#timerFast = null;
-    this.#dayTimer = null;
-    this.#dayDelay = 2000;
-    this.#slowDelay = 30;
-    this.#medDelay = 20;
-    this.#fastDelay = 10;
     this.#date = data.manifest[0].Date;
     this.#manifest = data.manifest;
-    this.#curIndex = 0;
-    this.#isPaused = true;
     this.#lastDate = data.manifest[data.manifest.length-1].Date;
     this.#map = map;
-    this.#popup = this.setupPopup(this.#layers);
-    this.#routeMap = {};
+    this.#popup = this.setupPopup();
+    this.addPositionLayer(this.#puppetLayerName);
 
-
-    for (const [layer, colour] of Object.entries(this.#layerColours)) {
-      this.addPositionLayers(layer, colour);
-    }
-
-    turf.featureEach(data['routes'], (feature) => {
+    let abc = performance.now();
+    for(let feature of data.routes.features){
       this.#routeMap[feature['properties']['path']] = this.elongatePaths(feature);
-    });
+    }
+    console.log(performance.now() - abc);
+
+    // turf.featureEach(data['routes'], (feature) => {
+    //   this.#routeMap[feature['properties']['path']] = this.elongatePaths(feature);
+    // });
 
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
-      this.#layers.forEach((name)=>{
-        const cleaned = [];
-        for(let p of this.#puppets[name].values()){
-          if(!p.isDone){
-            cleaned.push(p);
-          }
+      const cleaned = [];
+      for(let p of this.#puppets){
+        if(!p.isDone){
+          cleaned.push(p);
         }
-        this.#puppets[name] = cleaned;
-      })
+      }
+      this.#puppets = cleaned;
     }, 5000);
-  }
-  getObject(keys, vals){
-    const newObj = {};
-    let i = 0;
-    keys.forEach((key)=>{
-      newObj[key] = vals[i++];
-    })
-    return newObj;
   }
 
   elongatePaths(feature, segmentSize = 0.5){
@@ -130,28 +104,15 @@ export class PuppetMaster {
     return {"type": "Feature", "geometry": {"type": "LineString", "coordinates": elongated_coords}};
   }
 
-  getVesselLayer(puppet){
-    if(puppet.vesselInfo['Vessel Type'] === 'Schooner'){
-      return this.#puppets.slow;
-    }
-    else if (puppet.vesselInfo['Vessel Type'] === 'Barkentine' || puppet.vesselInfo['Vessel Type'] === 'Brigantine') {
-      return this.#puppets.medium;
-    }
-    else{
-      return this.#puppets.fast;
-    }
-  }
-
   setSpeed(speed){
     this.#speedFactor = parseFloat(speed.slice(0,-1))
     if(!this.#isPaused){
       this.pause();
       this.play();
     }
-
   }
 
-  addPositionLayers(name, color){
+  addPositionLayer(name){
     this.#map.addSource(name, {type: 'geojson', data: null});
     this.#map.addLayer({
       'id': name,
@@ -160,7 +121,17 @@ export class PuppetMaster {
       'paint': {
         'circle-radius': 4,
         'circle-stroke-width': 2,
-        'circle-color': color,
+        'circle-color': [
+          'match',
+          ['get', 'speed'],
+          'slow',
+          '#4264fb',
+          'medium',
+          'green',
+          'fast',
+          'purple',
+          '#ccc' //necessary 'other' case
+        ],
         'circle-stroke-color': 'white'
       }
     });
@@ -181,29 +152,36 @@ export class PuppetMaster {
     const feature = this.#routeMap[routeName];
     const puppet = new Puppet(feature, vesselInfo);
 
-    const vesselLayer = this.getVesselLayer(puppet);
-    vesselLayer.push(puppet);
+    this.#puppets.push(puppet);
     return puppet;
   }
 
   getCompletionDate(puppet){
     let speedFactor;
-    const layer = this.getVesselLayer(puppet);
-    if(layer === this.#puppets.slow) speedFactor = this.#slowDelay;
-    else if(layer === this.#puppets.medium) speedFactor = this.#medDelay;
-    else if(layer === this.#puppets.fast) speedFactor = this.#fastDelay;
-    const numDays = Math.floor((puppet.numPositions * speedFactor) / this.#dayDelay);
+    switch(puppet.speed){
+      case 'slow':
+        speedFactor = 1;
+        break;
+      case 'medium':
+        speedFactor = 2;
+        break;
+      case 'fast':
+        speedFactor = 3;
+        break;
+    }
+
+    const numDays = Math.floor((puppet.numPositions / speedFactor) / this.#dayDelay);
     return [numDays, puppet.vesselInfo.Date.add(numDays,'day').format('MMM DD YYYY')];
 
   }
 
-  findPuppet(mouseCoord, listName){
+  findPuppet(mouseCoord){
     //Find the puppet whose position is closest to the mouse.
     let minimumDistance = null;
     let closest = null;
     const mcPoint = turf.point(mouseCoord);
 
-    this.#puppets[listName].forEach((puppet)=>{
+    this.#puppets.forEach((puppet)=>{
       if(puppet.isDone){
         //Don't look up vessels that are no longer on the map
         return;
@@ -215,7 +193,6 @@ export class PuppetMaster {
         minimumDistance = distance;
       }
     });
-
     return closest;
   }
 
@@ -305,7 +282,7 @@ export class PuppetMaster {
     clearInterval(this.#trackingTimer);
   }
 
-  setupPopup(layerNames){
+  setupPopup(){
 
     // Create a popup, but don't add it to the map yet.
     const popup = new mapboxgl.Popup({
@@ -326,105 +303,104 @@ export class PuppetMaster {
       this.#map.getCanvas().style.cursor = '';
     }
 
-    layerNames.forEach((layer)=>{
-      const mouseDownListener = (e) => {
-        // Change the cursor style as a UI indicator.
+    const mouseDownListener = (e) => {
+      // Change the cursor style as a UI indicator.
 
-        const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
-        const puppet = this.findPuppet(mousePoint, layer);
-        const vi = puppet.vesselInfo;
+      const mousePoint = [e.lngLat['lng'], e.lngLat['lat']];
+      const puppet = this.findPuppet(mousePoint);
+      const vi = puppet.vesselInfo;
 
-        const barkentineSVG = "data/Sail_plan_barquentine.svg";
-        const schoonerSVG = "data/Sail_plan_schooner.svg";
-        const propellerImg = "data/propeller.jpg";
-        const vesselType = vi['Vessel Type'].trim().toLowerCase();
-        const departureDate = vi.Date.format('MMM DD YYYY');
-        const [duration,arrivalDate] = this.getCompletionDate(puppet);
+      const barkentineSVG = "data/Sail_plan_barquentine.svg";
+      const schoonerSVG = "data/Sail_plan_schooner.svg";
+      const propellerImg = "data/propeller.jpg";
+      const vesselType = vi['Vessel Type'].trim().toLowerCase();
+      const departureDate = vi.Date.format('MMM DD YYYY');
+      const [duration,arrivalDate] = this.getCompletionDate(puppet);
 
-        let vesselImg;
-        if(vesselType === "schooner"){
-          vesselImg = schoonerSVG;
-        }
-        else if(vesselType === "brigantine" || vesselType === "barkentine"){
-          vesselImg = barkentineSVG;
-        }
-        else if(vesselType === "propeller"){
-          vesselImg = propellerImg;
-        }
-        else{
-          vesselImg = null;
-        }
-        const vesselImgString = vesselImg !== null ? `<img src=${vesselImg} width=30/>` : '';
+      let vesselImg;
+      if(vesselType === "schooner"){
+        vesselImg = schoonerSVG;
+      }
+      else if(vesselType === "brigantine" || vesselType === "barkentine"){
+        vesselImg = barkentineSVG;
+      }
+      else if(vesselType === "propeller"){
+        vesselImg = propellerImg;
+      }
+      else{
+        vesselImg = null;
+      }
+      const vesselImgString = vesselImg !== null ? `<img src=${vesselImg} width=30/>` : '';
 
-        const nationality = vi.Nationality.trim().toLowerCase();
-        let nationalityImg;
+      const nationality = vi.Nationality.trim().toLowerCase();
+      let nationalityImg;
 
-        if(nationality === "american"){
-          nationalityImg = "data/Flag_of_the_United_States.svg";
-        }
-        else if(nationality === "british"){
-          nationalityImg = "data/Flag_of_the_United_Kingdom.svg";
-        }
-        else{
-          nationalityImg = null;
-        }
-        const nationalityImgString = nationalityImg !== null ? `<img src=${nationalityImg} width=30>` : '';
-        const description =
-          `<div class="popup">
-          <div class="phead">
-            <p>${vi['Name of Vessel']}</p>
-            <div>
-              ${vesselImgString}
-              ${nationalityImgString}
-            </div>
+      if(nationality === "american"){
+        nationalityImg = "data/Flag_of_the_United_States.svg";
+      }
+      else if(nationality === "british"){
+        nationalityImg = "data/Flag_of_the_United_Kingdom.svg";
+      }
+      else{
+        nationalityImg = null;
+      }
+      const nationalityImgString = nationalityImg !== null ? `<img src=${nationalityImg} width=30>` : '';
+      const description =
+        `<div class="popup">
+        <div class="phead">
+          <p>${vi['Name of Vessel']}</p>
+          <div>
+            ${vesselImgString}
+            ${nationalityImgString}
           </div>
+        </div>
 
-          <div class=pbody>
-            <div class=pbody-location>
-              <p><em>${vi['Where From']}</em> to <em>${vi['Where Bound']}</em></p>
-            </div>
-            <p>${departureDate} - ${arrivalDate}, ${duration} days</p>
-            <p>${vi.Cargo.join(', ')}</p>
+        <div class=pbody>
+          <div class=pbody-location>
+            <p><em>${vi['Where From']}</em> to <em>${vi['Where Bound']}</em></p>
           </div>
-        </div>`
+          <p>${departureDate} - ${arrivalDate}, ${duration} days</p>
+          <p>${vi.Cargo.join(', ')}</p>
+        </div>
+      </div>`
 
-        //addTo() raises a "close" event if it exists on the map already.
-        //it actually calls fire() on the popup object which then locates
-        //the 'close' listener and executes it. this all happens synchronously
-        //so addTo can be seen as calling the 'close' listener synchronously
-        //Also when a "close" event is generated, removeHLLayer() is called.
-        popup.setLngLat(puppet.curPosition).setHTML(description).addTo(this.#map);
+      //addTo() raises a "close" event if it exists on the map already.
+      //it actually calls fire() on the popup object which then locates
+      //the 'close' listener and executes it. this all happens synchronously
+      //so addTo can be seen as calling the 'close' listener synchronously
+      //Also when a "close" event is generated, removeHLLayer() is called.
+      popup.setLngLat(puppet.curPosition).setHTML(description).addTo(this.#map);
 
-        this.#trackingPuppet = puppet;
-        const puppetCoords = puppet.coordsGeoJson.geometry.coordinates;
-        this.addHLRLayerAndSrc();
-        this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(this.#map);
-        this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(this.#map);
+      this.#trackingPuppet = puppet;
+      const puppetCoords = puppet.coordsGeoJson.geometry.coordinates;
+      this.addHLRLayerAndSrc();
+      this.#markerStart.remove().setLngLat(puppetCoords[0]).addTo(this.#map);
+      this.#markerEnd.remove().setLngLat(puppetCoords[puppetCoords.length-1]).addTo(this.#map);
 
-        if(this.#focusOn){
-          this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
-        }
-
-        if(!this.#isPaused) {
-          this.addTrackerTimer();
-        }else{
-          //Do this so completion data shows up properly when paused but disable tracking so
-          //the user can still scroll around
-          this.setRouteCompletionData(puppet);
-        }
+      if(this.#focusOn){
+        this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
       }
 
-      this.#map.on('mouseenter', layer, mouseEnterListener);
-      this.#map.on('mouseleave', layer, mouseLeaveListener);
-      this.#map.on('mousedown', layer, mouseDownListener);
-      this.#listenerList.push(['mouseenter',layer, mouseEnterListener]);
-      this.#listenerList.push(['mouseleave',layer, mouseLeaveListener]);
-      this.#listenerList.push(['mousedown',layer, mouseDownListener]);
-    });
+      if(!this.#isPaused) {
+        this.addTrackerTimer();
+      }else{
+        //Do this so completion data shows up properly when paused but disable tracking so
+        //the user can still scroll around
+        this.setRouteCompletionData(puppet);
+      }
+    }
+
+    this.#map.on('mouseenter', this.#puppetLayerName , mouseEnterListener);
+    this.#map.on('mouseleave', this.#puppetLayerName , mouseLeaveListener);
+    this.#map.on('mousedown', this.#puppetLayerName , mouseDownListener);
+    this.#listenerList.push(['mouseenter',this.#puppetLayerName , mouseEnterListener]);
+    this.#listenerList.push(['mouseleave',this.#puppetLayerName , mouseLeaveListener]);
+    this.#listenerList.push(['mousedown',this.#puppetLayerName , mouseDownListener]);
+
 
     return popup;
   }
-  addVesselsToLists(delay){
+  addVessels(delay){
     const innerFunc = function(){
       /*This "collision map" serves to find vessels that are leaving from the same location
       * and that will appear stacked upon one another when drawn on the map unless fixed. For stacked
@@ -449,7 +425,6 @@ export class PuppetMaster {
       const compareFn = (a,b) => {
         return a.numPositions - b.numPositions;
       }
-
 
       for(const collisions of [...collisionMap.values()]){
         if(collisions.length > 1){
@@ -488,23 +463,9 @@ export class PuppetMaster {
     return setInterval(innerFunc, delay);
   }
 
-  pause() {
-    clearInterval(this.#timerSlow);
-    clearInterval(this.#timerMed);
-    clearInterval(this.#timerFast);
-    clearInterval(this.#dayTimer);
-    if(this.#trackingPuppet){
-      clearInterval(this.#trackingTimer);
-      this.zoomFixOff();
-    }
-    this.#isPaused = true;
-  }
-
-  addTimer(listName, delay){
+  advancePuppets(delay){
     return setInterval(() => {
-      const puppetList = this.#puppets[listName];
-      const curPositions = [];
-      const mapSrc = this.#map.getSource(listName);
+      const mapSrc = this.#map.getSource(this.#puppetLayerName);
 
       /*This happens when the map style changes (i.e, streets-v12, outdoors-v12, etc)
       has been changed. When a style change occurs all layers and sources are cleared
@@ -515,16 +476,48 @@ export class PuppetMaster {
         return;
       }
 
-      puppetList.forEach((puppet)=>{
-        if(!puppet.isDone) {
-          curPositions.push(puppet.curPosition);
-          puppet.advance();
+      const slowPositions = [];
+      const mediumPositions = [];
+      const fastPositions = [];
+      for(let puppet of this.#puppets) {
+        if (!puppet.isDone) {
+          if (puppet.speed === 'slow') {
+            puppet.advance();
+            slowPositions.push(puppet.curPosition);
+          } else if (puppet.speed === 'medium') {
+            puppet.advance();
+            puppet.advance();
+            mediumPositions.push(puppet.curPosition);
+          } else if (puppet.speed === 'fast') {
+            fastPositions.push(puppet.curPosition);
+            puppet.advance();
+            puppet.advance();
+            puppet.advance();
+          }
+
         }
-      });
-      this.#puppetPositions[listName].geometry.coordinates = curPositions;
-      mapSrc.setData(this.#puppetPositions[listName]);
+      }
+
+      this.#puppetPositions = {
+          "type": "FeatureCollection",
+          "features": []
+      }
+      for(let [positions,speed] of [[slowPositions,'slow'], [mediumPositions,'medium'], [fastPositions,'fast']]){
+        if(positions.length){
+          const feature = turf.multiPoint(positions, {'speed': speed});
+          this.#puppetPositions.features.push(feature);
+        }
+      }
+      if(this.#puppetPositions.features.length){
+        this.#map.getSource(this.#puppetLayerName).setData(this.#puppetPositions);
+      }
 
     }, delay);
+  }
+  repaint(){
+    return setInterval(()=>{
+      this.#map.getSource(this.#puppetLayerName).setData(this.#puppetPositions);
+    }, this.#repaintDelay);
   }
 
   setRouteCompletionData(puppet){
@@ -581,15 +574,24 @@ export class PuppetMaster {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
     if (this.#isPaused) {
-      this.#dayTimer = this.addVesselsToLists(this.#dayDelay / this.#speedFactor);
-      this.#timerSlow = this.addTimer('slow', this.#slowDelay / this.#speedFactor);
-      this.#timerMed = this.addTimer('medium', this.#medDelay / this.#speedFactor);
-      this.#timerFast = this.addTimer('fast', this.#fastDelay / this.#speedFactor);
+      this.#dayTimer = this.addVessels(this.#dayDelay / this.#speedFactor);
+      this.#advanceTimer = this.advancePuppets(this.#advanceDelay / this.#speedFactor);
+      // this.#repaintTimer = this.repaint();
       if(this.#trackingPuppet){
         this.addTrackerTimer();
       }
       this.#isPaused = false;
     }
+  }
+  pause() {
+    clearInterval(this.#dayTimer);
+    clearInterval(this.#repaintTimer);
+    clearInterval(this.#advanceTimer);
+    if(this.#trackingPuppet){
+      clearInterval(this.#trackingTimer);
+      this.zoomFixOff();
+    }
+    this.#isPaused = true;
   }
 
   isPaused(){
@@ -605,10 +607,8 @@ export class PuppetMaster {
     for(const [event, layer, func] of this.#listenerList){
       this.#map.off(event, layer, func);
     }
-    for(const name of this.#layers){
-      this.#map.removeLayer(name);
-      this.#map.removeSource(name);
-    }
+    this.#map.removeLayer(this.#puppetLayerName);
+    this.#map.removeSource(this.#puppetLayerName);
   }
 
   /*When a style is changed all sources/layers are removed. This adds them back*/
@@ -616,16 +616,16 @@ export class PuppetMaster {
     /*A bit hacky, but this check is necessary since the 'styledata' event can be emitted
       multiple times and at the beginning when the map is first loaded.
     */
-    if(this.#map.getSource('slow') !== undefined)
+    if(this.#map.getSource(this.#puppetLayerName) !== undefined)
       return;
 
-    for (const [layer, colour] of Object.entries(this.#layerColours)) {
-      this.addPositionLayers(layer, colour);
-    }
+    this.addPositionLayer(this.#puppetLayerName);
+
     if(this.#trackingPuppet){
       this.addHLRLayerAndSrc();
     }
   }
+
 
   changeDate(dateRange){
     /**
@@ -639,8 +639,8 @@ export class PuppetMaster {
 
 
     this.pause();
-    this.#puppets = this.getObject(this.#layers,[[],[],[]]);
-    this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
+    // this.#puppets = this.getObject(this.#layers,[[],[],[]]);
+    // this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
 
     if(this.#trackingPuppet){
       this.#popup.remove();

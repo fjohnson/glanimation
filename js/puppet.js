@@ -1,25 +1,30 @@
 export class Puppet{
   #coordinates;
-  #cordIdx;
+  #cordIdx = 0;
 
-  vesselInfo;
-  name;
-  curPosition;
-  isDone;
   constructor(feature, vesselInfo){
     this.#coordinates = turf.coordAll(feature);
-    this.#cordIdx = 0;
     this.curPosition = this.#coordinates[0];
     this.name = vesselInfo['Name of Vessel'];
     this.isDone = false;
     this.vesselInfo = vesselInfo;
+    this.speed = this.#setSpeed();
   }
 
+  #setSpeed(){
+    switch(this.vesselInfo['Vessel Type']){
+      case 'Schooner': return 'slow';
+      case 'Barkentine':
+      case 'Brigantine': return 'medium';
+      default: return 'fast';
+    }
+  }
   setOffset(offset){
     this.#cordIdx = offset;
     this.curPosition = this.#coordinates[offset];
   }
   advance() {
+
     if (this.#cordIdx < this.#coordinates.length) {
       this.curPosition = this.#coordinates[this.#cordIdx++];
     }
