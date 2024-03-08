@@ -74,7 +74,6 @@ map.on('load', async () => {
   const speedButton = document.getElementById("speed-btn");
   const focusButton = document.getElementById("focus-btn");
 
-
   focusButton.addEventListener('click', ()=>{
     focusButton.classList.toggle('focus-disabled');
     puppeteer.toggleFocus();
