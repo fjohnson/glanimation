@@ -27,7 +27,7 @@ map.on('load', () => {
    <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
   </button>
   <button id="terrain-btn" class="clt8v4v3z00ct01qk2h369tp4" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
-  <button id="focus-btn"><i class="fa-solid fa-binoculars"></i></button>
+  <button id="focus-btn" class="focus-disabled"><img src=data/binoculars-solidr.png width="14"/></button>
   <button id="debug-btn" title="Debug" aria-label="debug">
     <i class="fa-solid fa-bug-slash"></i>
   </button>
@@ -41,8 +41,7 @@ map.on('load', () => {
   tbtn.addEventListener("click", ()=>{
     const cycle = new Map([
       ["clt8v4v3z00ct01qk2h369tp4","clt8uqlim00cp01qkewtm6jf8"],["clt8uqlim00cp01qkewtm6jf8","clt8uc45s00cl01qk70jn32y3",],
-      ["clt8uc45s00cl01qk70jn32y3","clt8u4m2j005401p3999b6t6s"],["clt8u4m2j005401p3999b6t6s","clt8tdpi500pn01qpdncycb5o"],
-      ["clt8tdpi500pn01qpdncycb5o","clt8v4v3z00ct01qk2h369tp4"]]);
+      ["clt8uc45s00cl01qk70jn32y3","clt8tdpi500pn01qpdncycb5o"],["clt8tdpi500pn01qpdncycb5o","clt8v4v3z00ct01qk2h369tp4"]]);
 
     for(let current of tbtn.classList.values()){
       if(cycle.has(current)){

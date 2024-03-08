@@ -5,10 +5,8 @@ export class PuppetMaster {
   #manifest;
   #date;
   #puppets = [];
-  #puppetPositions;
   #curIndex = 0;
-  #dayTimer = null;
-  #dayDelay = 2000;
+  #dayDelay = 100;
   #listCleaner;
   #lastDate;
   #listenerList = [];
@@ -17,9 +15,9 @@ export class PuppetMaster {
   #map;
   #pauseDate = null;
   #puppetLayerName = 'puppets';
-  #advanceTimer = null;
-  #advanceDelay = 10;
-  #elapsedTime = 0;
+  #animateTimer = null;
+  #animateDelay = 20;
+  #animateIterations = 0;
 
   //Variables relating to popup / route tracking
   #popup;
@@ -29,11 +27,8 @@ export class PuppetMaster {
   #layerDone = 'hlRouteDoneLayer';
   #markerStart = new mapboxgl.Marker({'color':'darkolivegreen'});
   #markerEnd = new mapboxgl.Marker({'color':'firebrick'});
-  #zoomStartFunc = null;
-  #zoomEndFunc = null;
-  #trackingTimer = null;
   #trackingPuppet = null;
-  #focusOn = true;
+  #focusOn = false;
 
   constructor(data, map) {
 
@@ -162,11 +157,9 @@ export class PuppetMaster {
   }
 
   getCompletionDate(puppet){
-    console.log(puppet.numPositions / (this.#dayDelay / this.#advanceDelay));
-    const numDays = Math.floor(puppet.numPositions / (this.#dayDelay / this.#advanceDelay));
+    const numDays = Math.floor(puppet.numPositions / this.#dayDelay );
     return [numDays, puppet.vesselInfo.Date.add(numDays,'day').format('MMM DD YYYY')];
-
-  }
+}
 
   findPuppet(mouseCoord){
     //Find the puppet whose position is closest to the mouse.
@@ -271,8 +264,6 @@ export class PuppetMaster {
 
     this.#markerStart.remove();
     this.#markerEnd.remove();
-    this.zoomFixOff();
-    clearInterval(this.#trackingTimer);
   }
 
   setupPopup(){
@@ -311,32 +302,35 @@ export class PuppetMaster {
       const [duration,arrivalDate] = this.getCompletionDate(puppet);
 
       let vesselImg;
-      if(vesselType === "schooner"){
-        vesselImg = schoonerSVG;
-      }
-      else if(vesselType === "brigantine" || vesselType === "barkentine"){
-        vesselImg = barkentineSVG;
-      }
-      else if(vesselType === "propeller"){
-        vesselImg = propellerImg;
-      }
-      else{
-        vesselImg = null;
+      switch(vesselType){
+        case "schooner":
+          vesselImg = schoonerSVG;
+          break;
+        case "brigantine":
+        case "barkentine":
+          vesselImg = barkentineSVG;
+          break;
+        case "propeller":
+          vesselImg = propellerImg;
+          break;
+        default:
+          vesselImg = null;
       }
       const vesselImgString = vesselImg !== null ? `<img src=${vesselImg} width=30/>` : '';
 
       const nationality = vi.Nationality.trim().toLowerCase();
       let nationalityImg;
+      switch(nationality){
+        case "american":
+          nationalityImg = "data/Flag_of_the_United_States.svg";
+          break;
+        case "british":
+          nationalityImg = "data/Flag_of_the_United_Kingdom.svg";
+          break;
+        default:
+          nationalityImg = null;
+      }
 
-      if(nationality === "american"){
-        nationalityImg = "data/Flag_of_the_United_States.svg";
-      }
-      else if(nationality === "british"){
-        nationalityImg = "data/Flag_of_the_United_Kingdom.svg";
-      }
-      else{
-        nationalityImg = null;
-      }
       const nationalityImgString = nationalityImg !== null ? `<img src=${nationalityImg} width=30>` : '';
       const description =
         `<div class="popup">
@@ -373,14 +367,7 @@ export class PuppetMaster {
       if(this.#focusOn){
         this.zoomToStartEnd(puppet.curPosition,puppetCoords[0],puppetCoords[puppetCoords.length-1]);
       }
-
-      if(!this.#isPaused) {
-        this.addTrackerTimer();
-      }else{
-        //Do this so completion data shows up properly when paused but disable tracking so
-        //the user can still scroll around
-        this.setRouteCompletionData(puppet);
-      }
+      this.setRouteCompletionData(puppet);
     }
 
     this.#map.on('mouseenter', this.#puppetLayerName , mouseEnterListener);
@@ -389,7 +376,6 @@ export class PuppetMaster {
     this.#listenerList.push(['mouseenter',this.#puppetLayerName , mouseEnterListener]);
     this.#listenerList.push(['mouseleave',this.#puppetLayerName , mouseLeaveListener]);
     this.#listenerList.push(['mousedown',this.#puppetLayerName , mouseDownListener]);
-
 
     return popup;
   }
@@ -437,21 +423,44 @@ export class PuppetMaster {
           }
         }
       }
-
-      // Don't change the date if we have finished iterating through the manifest
-      // This happens at the end of the animation
-      if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
-        document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
-        if(this.#pauseDate?.isSame(this.#date)){
-          document.getElementById('pause-btn').dispatchEvent(new Event('click'));
-          this.#pauseDate = null;
-        }
-        this.#date = this.#date.add(1, 'day');
-      }
   }
 
-  advancePuppets(delay){
-    return setInterval(() => {
+  incrementDate(){
+    if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
+      document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
+      if(this.#pauseDate?.isSame(this.#date)){
+        document.getElementById('pause-btn').dispatchEvent(new Event('click'));
+        this.#pauseDate = null;
+      }
+      this.#date = this.#date.add(1, 'day');
+    }
+  }
+  animate(delay){
+    return setInterval(()=>{
+      this.advancePuppets()
+
+      //Increase the day and add more vessels after
+      //#dayDelay movements of puppets. With a default value of 100
+      //and delay set to 20, this means each day is incremented roughly
+      //every two seconds.
+      if(++this.#animateIterations===this.#dayDelay){
+        this.addVessels();
+        this.incrementDate();
+        this.#animateIterations=0;
+      }
+      if(this.#trackingPuppet){
+        if(this.#trackingPuppet.isDone){
+          this.#popup.remove();
+        }
+        else {
+          this.#popup.setLngLat(this.#trackingPuppet.curPosition);
+          this.setRouteCompletionData(this.#trackingPuppet);
+        }
+      }
+
+    }, delay);
+  }
+  advancePuppets(){
       const mapSrc = this.#map.getSource(this.#puppetLayerName);
 
       /*This happens when the map style changes (i.e, streets-v12, outdoors-v12, etc)
@@ -483,26 +492,19 @@ export class PuppetMaster {
         }
       }
 
-      this.#puppetPositions = {
+      let puppetPositions = {
           "type": "FeatureCollection",
           "features": []
       }
       for(let [positions,speed] of [[slowPositions,'slow'], [mediumPositions,'medium'], [fastPositions,'fast']]){
         if(positions.length){
           const feature = turf.multiPoint(positions, {'speed': speed});
-          this.#puppetPositions.features.push(feature);
+          puppetPositions.features.push(feature);
         }
       }
-      if(this.#puppetPositions.features.length){
-        this.#map.getSource(this.#puppetLayerName).setData(this.#puppetPositions);
+      if(puppetPositions.features.length){
+        this.#map.getSource(this.#puppetLayerName).setData(puppetPositions);
       }
-      this.#elapsedTime+=delay;
-
-      if(this.#elapsedTime===this.#dayDelay){
-        this.addVessels();
-        this.#elapsedTime=0;
-      }
-    }, delay);
   }
   setRouteCompletionData(puppet){
     const {done, remaining} = puppet.coordsProgress;
@@ -512,67 +514,16 @@ export class PuppetMaster {
     this.#map.getSource(this.#sourceDone).setData(done);
   }
 
-  addTrackerTimer(delay=10){
-    let puppet = this.#trackingPuppet;
-    let paused = false;
-    const trackingFunc = ()=>{
-      if(paused) return;
-
-      if(puppet.isDone){
-        this.#popup.remove();
-      }
-      else{
-        // this.#map.panTo(puppet.curPosition, {duration:250});
-        this.#popup.setLngLat(puppet.curPosition);
-
-        this.setRouteCompletionData(puppet);
-      }
-    };
-    this.#trackingTimer = setInterval(trackingFunc, delay);
-
-    /*When a zoom starts, a zoomstart event is fired. then many 'zoom' events are generated as mapbox zooms in a tiny bit
-     at a time to make the animation look smooth. then when it is finished a zoomend event is generated. jumpTo/panTo
-     will stop a 'zoom' event, so that if the interval inbetween *To events is something like 1000ms you will see many
-     of the 'zoom' events happen, however, if the interval is in the order of 10ms you won't see any of them happen.
-     I'm still not sure why this is happening, but its maybe because mapbox can't pan and zoom at the same time,
-     when the zoom event is generated outside of the *To function call. So the trick is to suspend the *To calls
-     when 'zoomstart' happens, and then reenable them when 'zoomend' occurrs.*/
-
-    this.#zoomStartFunc = (e) => {
-      paused = true;
-    }
-    this.#zoomEndFunc = (e) => {
-      paused = false;
-    }
-    this.#map.on('zoomstart', this.#zoomStartFunc);
-    this.#map.on('zoomend', this.#zoomEndFunc);
-
-  }
-
-  zoomFixOff(){
-    this.#map.off('zoomstart', this.#zoomStartFunc);
-    this.#map.off('zoomend', this.#zoomEndFunc);
-  }
-
   play() {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
     if (this.#isPaused) {
-      //this.#dayTimer = this.addVessels(this.#dayDelay / this.#speedFactor);
-      this.#advanceTimer = this.advancePuppets(this.#advanceDelay / this.#speedFactor);
-      if(this.#trackingPuppet){
-        this.addTrackerTimer();
-      }
+      this.#animateTimer = this.animate(this.#animateDelay / this.#speedFactor);
       this.#isPaused = false;
     }
   }
   pause() {
-    // clearInterval(this.#dayTimer);
-    clearInterval(this.#advanceTimer);
-    if(this.#trackingPuppet){
-      clearInterval(this.#trackingTimer);
-      this.zoomFixOff();
-    }
+    clearInterval(this.#animateTimer);
     this.#isPaused = true;
   }
 
@@ -614,15 +565,15 @@ export class PuppetMaster {
      * Pause - clear timers
      * Clear puppet lists
      * Clear layers
-     * Remove tracking puppet popup, distance layers, zoomfix, tracking timer
+     * Remove tracking puppet popup, distance layers, zoomfix
      * Change date (title)
      * change this#.curIndex to match this.#manifest date
+     * Add puppets
      */
 
-
+    const wasPaused = this.#isPaused;
     this.pause();
-    // this.#puppets = this.getObject(this.#layers,[[],[],[]]);
-    // this.#puppetPositions = this.getObject(this.#layers,[turf.multiPoint(), turf.multiPoint(),turf.multiPoint()]);
+    this.#puppets = [];
 
     if(this.#trackingPuppet){
       this.#popup.remove();
@@ -640,9 +591,19 @@ export class PuppetMaster {
         this.#curIndex++;
       }
     }
+    //need to add vessels here, otherwise they get added in animate() when the next day happens
+    //which makes the animation look like its lagging.
+    this.addVessels();
+
+    this.#animateIterations = 0;
     this.#date = dayjs(dateRange.startDate);
     this.#pauseDate = !dayjs(dateRange.startDate).isSame(dayjs(dateRange.endDate)) ?
                        dayjs(dateRange.endDate).add(1, 'day') : null;
-    this.play();
+    if(!wasPaused){this.play();}
+    else{
+      //Do this so that if we were paused before the date change, the pause icon is now a play icon
+      const pauseButton = document.getElementById("pause-btn");
+      pauseButton.click();
+    }
   }
 }
