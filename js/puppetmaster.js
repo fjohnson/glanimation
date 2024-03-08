@@ -393,8 +393,8 @@ export class PuppetMaster {
 
     return popup;
   }
-  addVessels(delay){
-    const innerFunc = function(){
+  addVessels(){
+
       /*This "collision map" serves to find vessels that are leaving from the same location
       * and that will appear stacked upon one another when drawn on the map unless fixed. For stacked
       * vessels, an offset is determined for use (next coordinate in their path). Thus, 12 vessels starting
@@ -447,13 +447,7 @@ export class PuppetMaster {
           this.#pauseDate = null;
         }
         this.#date = this.#date.add(1, 'day');
-
       }
-    }.bind(this);
-
-    //Call the logic once before the timer, so that results show up right away.
-    innerFunc();
-    return setInterval(innerFunc, delay);
   }
 
   advancePuppets(delay){
@@ -502,7 +496,12 @@ export class PuppetMaster {
       if(this.#puppetPositions.features.length){
         this.#map.getSource(this.#puppetLayerName).setData(this.#puppetPositions);
       }
+      this.#elapsedTime+=delay;
 
+      if(this.#elapsedTime===this.#dayDelay){
+        this.addVessels();
+        this.#elapsedTime=0;
+      }
     }, delay);
   }
   setRouteCompletionData(puppet){
@@ -559,7 +558,7 @@ export class PuppetMaster {
     //check if we are paused so that this function cannot be called multiple times while running by mistake.
     //that would set up a situation where multiple timers are running.
     if (this.#isPaused) {
-      this.#dayTimer = this.addVessels(this.#dayDelay / this.#speedFactor);
+      //this.#dayTimer = this.addVessels(this.#dayDelay / this.#speedFactor);
       this.#advanceTimer = this.advancePuppets(this.#advanceDelay / this.#speedFactor);
       if(this.#trackingPuppet){
         this.addTrackerTimer();
@@ -568,7 +567,7 @@ export class PuppetMaster {
     }
   }
   pause() {
-    clearInterval(this.#dayTimer);
+    // clearInterval(this.#dayTimer);
     clearInterval(this.#advanceTimer);
     if(this.#trackingPuppet){
       clearInterval(this.#trackingTimer);
