@@ -17,10 +17,9 @@ export class PuppetMaster {
   #map;
   #pauseDate = null;
   #puppetLayerName = 'puppets';
-  #repaintTimer = null;
-  #repaintDelay = 10;
   #advanceTimer = null;
   #advanceDelay = 10;
+  #elapsedTime = 0;
 
   //Variables relating to popup / route tracking
   #popup;
@@ -45,15 +44,9 @@ export class PuppetMaster {
     this.#popup = this.setupPopup();
     this.addPositionLayer(this.#puppetLayerName);
 
-    let abc = performance.now();
     for(let feature of data.routes.features){
-      this.#routeMap[feature['properties']['path']] = this.elongatePaths(feature);
+      this.#routeMap[feature['properties']['path']] = feature;
     }
-    console.log(performance.now() - abc);
-
-    // turf.featureEach(data['routes'], (feature) => {
-    //   this.#routeMap[feature['properties']['path']] = this.elongatePaths(feature);
-    // });
 
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
@@ -149,7 +142,19 @@ export class PuppetMaster {
       return;
     }
     const routeName = `${vesselInfo['Where From']}+${vesselInfo['Where Bound']}`;
-    const feature = this.#routeMap[routeName];
+    let spacing;
+    switch(vesselInfo['Vessel Type']){
+      case 'Schooner':
+        spacing = 0.5;
+        break;
+      case 'Barkentine':
+      case 'Brigantine':
+        spacing = 1.0;
+        break;
+      default:
+        spacing = 1.2;
+    }
+    const feature = this.elongatePaths(this.#routeMap[routeName],spacing);
     const puppet = new Puppet(feature, vesselInfo);
 
     this.#puppets.push(puppet);
@@ -157,20 +162,8 @@ export class PuppetMaster {
   }
 
   getCompletionDate(puppet){
-    let speedFactor;
-    switch(puppet.speed){
-      case 'slow':
-        speedFactor = 1;
-        break;
-      case 'medium':
-        speedFactor = 2;
-        break;
-      case 'fast':
-        speedFactor = 3;
-        break;
-    }
-
-    const numDays = Math.floor((puppet.numPositions / speedFactor) / this.#dayDelay);
+    console.log(puppet.numPositions / (this.#dayDelay / this.#advanceDelay));
+    const numDays = Math.floor(puppet.numPositions / (this.#dayDelay / this.#advanceDelay));
     return [numDays, puppet.vesselInfo.Date.add(numDays,'day').format('MMM DD YYYY')];
 
   }
@@ -481,20 +474,18 @@ export class PuppetMaster {
       const fastPositions = [];
       for(let puppet of this.#puppets) {
         if (!puppet.isDone) {
-          if (puppet.speed === 'slow') {
-            puppet.advance();
-            slowPositions.push(puppet.curPosition);
-          } else if (puppet.speed === 'medium') {
-            puppet.advance();
-            puppet.advance();
-            mediumPositions.push(puppet.curPosition);
-          } else if (puppet.speed === 'fast') {
-            fastPositions.push(puppet.curPosition);
-            puppet.advance();
-            puppet.advance();
-            puppet.advance();
+          switch (puppet.speed) {
+            case 'slow':
+              slowPositions.push(puppet.curPosition);
+              break;
+            case 'medium':
+              mediumPositions.push(puppet.curPosition);
+              break;
+            case 'fast':
+              fastPositions.push(puppet.curPosition);
+              break;
           }
-
+          puppet.advance();
         }
       }
 
@@ -514,12 +505,6 @@ export class PuppetMaster {
 
     }, delay);
   }
-  repaint(){
-    return setInterval(()=>{
-      this.#map.getSource(this.#puppetLayerName).setData(this.#puppetPositions);
-    }, this.#repaintDelay);
-  }
-
   setRouteCompletionData(puppet){
     const {done, remaining} = puppet.coordsProgress;
     /*This may throw an error if the map's style has been changed but reinitLayers() has not executed yet
@@ -538,7 +523,7 @@ export class PuppetMaster {
         this.#popup.remove();
       }
       else{
-        this.#map.panTo(puppet.curPosition, {duration:250});
+        // this.#map.panTo(puppet.curPosition, {duration:250});
         this.#popup.setLngLat(puppet.curPosition);
 
         this.setRouteCompletionData(puppet);
@@ -576,7 +561,6 @@ export class PuppetMaster {
     if (this.#isPaused) {
       this.#dayTimer = this.addVessels(this.#dayDelay / this.#speedFactor);
       this.#advanceTimer = this.advancePuppets(this.#advanceDelay / this.#speedFactor);
-      // this.#repaintTimer = this.repaint();
       if(this.#trackingPuppet){
         this.addTrackerTimer();
       }
@@ -585,7 +569,6 @@ export class PuppetMaster {
   }
   pause() {
     clearInterval(this.#dayTimer);
-    clearInterval(this.#repaintTimer);
     clearInterval(this.#advanceTimer);
     if(this.#trackingPuppet){
       clearInterval(this.#trackingTimer);
