@@ -80,7 +80,7 @@ function DateRangeDialog() {
         onChange={handleSelection}
         months={1}
         minDate={new Date(1854,3,1)}
-        maxDate={new Date(1876,11,31)}
+        maxDate={new Date(1882,11,30)}
         direction="vertical"
         scroll={{ enabled: true }}
         ranges={state}
