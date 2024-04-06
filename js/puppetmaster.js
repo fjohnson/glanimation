@@ -86,7 +86,7 @@ export class PuppetMaster {
       const slice = getSlice(i,ncount);
       if(slice!==null){
         pathWorker.postMessage(slice);
-        i+=20;
+        i+=ncount;
       }else{
         this.#completedPrecompute = true;
         this.#routeMap = newRouteMap;
