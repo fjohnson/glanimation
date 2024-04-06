@@ -18,6 +18,7 @@ export class PuppetMaster {
   #animateTimer = null;
   #animateDelay = 20;
   #animateIterations = 0;
+  #completedPrecompute = false;
 
   //Variables relating to popup / route tracking
   #popup;
@@ -53,6 +54,45 @@ export class PuppetMaster {
       }
       this.#puppets = cleaned;
     }, 5000);
+
+    this.preComputeElongatedPaths();
+
+  }
+
+  preComputeElongatedPaths(){
+    /*
+    * Elongate paths in the background using a webworker. Do it at a bit at a time because if
+    * we do it all at once, when the web worker returns the result (70+ MBs of data) there is
+    * a significant lag in the main thread of 1-2s.
+    * */
+    const pathWorker = new Worker("js/pathworker.js");
+    const ncount = 20;
+    let i = ncount;
+    const entries = Object.entries(this.#routeMap)
+    const newRouteMap = {};
+
+    function getSlice(start, count){
+      if(start>entries.length-1) return null;
+      const slice = {};
+      for(const [route,feature] of entries.slice(start,start+count)){
+        slice[route] = feature;
+      }
+      return slice;
+    }
+    pathWorker.onmessage = (e) => {
+      for(let [k,v] of Object.entries(e.data)){
+        newRouteMap[k] = v;
+      }
+      const slice = getSlice(i,ncount);
+      if(slice!==null){
+        pathWorker.postMessage(slice);
+        i+=20;
+      }else{
+        this.#completedPrecompute = true;
+        this.#routeMap = newRouteMap;
+      }
+    };
+    pathWorker.postMessage(getSlice(0,ncount))
   }
 
   elongatePaths(feature, segmentSize = 0.5){
@@ -149,7 +189,8 @@ export class PuppetMaster {
       default:
         spacing = 1.2;
     }
-    const feature = this.elongatePaths(this.#routeMap[routeName],spacing);
+    const feature = this.#completedPrecompute ? this.#routeMap[routeName][spacing] :
+                                                          this.elongatePaths(this.#routeMap[routeName],spacing);
     const puppet = new Puppet(feature, vesselInfo);
 
     this.#puppets.push(puppet);
