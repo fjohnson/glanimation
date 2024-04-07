@@ -1,5 +1,7 @@
-/*
-* */
+// import turfDistance from "@turf/distance";
+// import turfAlong from "@turf/along";
+// import turf from "@turf/helpers";
+
 importScripts('https://unpkg.com/@turf/turf@6/turf.min.js');
 const DEFINED_SPACING = [0.5, 1.0, 1.2];
 function elongatePaths(feature, segmentSize = 0.5){
@@ -15,12 +17,14 @@ function elongatePaths(feature, segmentSize = 0.5){
 
   for(let k =1; k< coords.length; k++){
     let to = coords[k];
+    // let distance = turfDistance(turf.point(from), turf.point(to));
     let distance = turf.distance(turf.point(from), turf.point(to));
 
     if(distance > segmentSize){
       let remaining_distance = distance;
       while(remaining_distance >= segmentSize){
         let line = turf.lineString([from, to]);
+        // let point = turfAlong(line, segmentSize);
         let point = turf.along(line, segmentSize);
         elongated_coords.push(from);
         from = point.geometry.coordinates;

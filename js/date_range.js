@@ -39,15 +39,15 @@ function DateRangeDialog() {
   function handleClickOpen(){
     let puppetMaster = callbackContainer[0];
     puppetMaster.pause();
-    const targetNode = document.querySelector("body");
-    observer.observe(targetNode, config);
+    // const targetNode = document.querySelector("body");
+    // observer.observe(targetNode, config);
     setOpen(true);
   }
 
   function handleClose(){
     let puppetMaster = callbackContainer[0];
     puppetMaster.changeDate(dateSelection);
-    observer.disconnect();
+    // observer.disconnect();
     setOpen(false);
   }
 

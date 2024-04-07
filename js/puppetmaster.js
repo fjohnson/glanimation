@@ -8,7 +8,7 @@ export class PuppetMaster {
   #curIndex = 0;
   #dayDelay = 100;
   #listCleaner;
-  #lastDate;
+  #finalDate;
   #listenerList = [];
   #speedFactor = 1;
   #routeMap = {};
@@ -35,7 +35,7 @@ export class PuppetMaster {
 
     this.#date = data.manifest[0].Date;
     this.#manifest = data.manifest;
-    this.#lastDate = data.manifest[data.manifest.length-1].Date;
+    this.#finalDate = data.manifest[data.manifest.length-1].Date;
     this.#map = map;
     this.#popup = this.setupPopup();
     this.addPositionLayer(this.#puppetLayerName);
@@ -65,6 +65,7 @@ export class PuppetMaster {
     * we do it all at once, when the web worker returns the result (70+ MBs of data) there is
     * a significant lag in the main thread of 1-2s.
     * */
+    // const pathWorker = new Worker(new URL("js/pathworker.js", import.meta.url));
     const pathWorker = new Worker("js/pathworker.js");
     const ncount = 20;
     let i = ncount;
@@ -446,7 +447,7 @@ export class PuppetMaster {
         return a.numPositions - b.numPositions;
       }
 
-      for(const collisions of [...collisionMap.values()]){
+      for(const collisions of collisionMap.values()){
         if(collisions.length > 1){
           const offsetDistance = 10; //arbitrary spacing number
           let offset = 0;
@@ -467,7 +468,7 @@ export class PuppetMaster {
   }
 
   incrementDate(){
-    if (!this.#date.isSame(this.#lastDate.add(1,'day'))) {
+    if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
       document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
       if(this.#pauseDate?.isSame(this.#date)){
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
@@ -478,13 +479,14 @@ export class PuppetMaster {
   }
   animate(delay){
     return setInterval(()=>{
-      this.advancePuppets()
+      this.advancePuppets();
 
       //Increase the day and add more vessels after
       //#dayDelay movements of puppets. With a default value of 100
       //and delay set to 20, this means each day is incremented roughly
       //every two seconds.
-      if(++this.#animateIterations===this.#dayDelay){
+      this.#animateIterations++;
+      if(this.#animateIterations===this.#dayDelay){
         this.addVessels();
         this.incrementDate();
         this.#animateIterations=0;
@@ -537,7 +539,9 @@ export class PuppetMaster {
           "type": "FeatureCollection",
           "features": []
       }
-      for(let [positions,speed] of [[slowPositions,'slow'], [mediumPositions,'medium'], [fastPositions,'fast']]){
+      for(let [positions,speed] of [[slowPositions,'slow'],
+                                                           [mediumPositions,'medium'],
+                                                           [fastPositions,'fast']]){
         if(positions.length){
           const feature = turf.multiPoint(positions, {'speed': speed});
           puppetPositions.features.push(feature);
@@ -603,17 +607,15 @@ export class PuppetMaster {
 
   changeDate(dateRange){
     /**
-     * Pause - clear timers
-     * Clear puppet lists
+     * Pause - clear timers (Pause done in date_range.js in handleClickOpen)
+     * Clear puppet list
      * Clear layers
-     * Remove tracking puppet popup, distance layers, zoomfix
+     * Remove tracking puppet popup, distance layers
      * Change date (title)
      * change this#.curIndex to match this.#manifest date
      * Add puppets
      */
 
-    const wasPaused = this.#isPaused;
-    this.pause();
     this.#puppets = [];
 
     if(this.#trackingPuppet){
@@ -632,19 +634,22 @@ export class PuppetMaster {
         this.#curIndex++;
       }
     }
+
+    this.#date = dayjs(dateRange.startDate);
     //need to add vessels here, otherwise they get added in animate() when the next day happens
-    //which makes the animation look like its lagging.
+    //which makes the animation look like its lagging. Same applies to setting the date.
     this.addVessels();
+    document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
+    //Do this as this.#date points to current date+1
+    this.#date = this.#date.add(1, 'day');
 
     this.#animateIterations = 0;
-    this.#date = dayjs(dateRange.startDate);
+    //pause the animation if a range with an enddate is provided. pause at the enddate+1.
     this.#pauseDate = !dayjs(dateRange.startDate).isSame(dayjs(dateRange.endDate)) ?
                        dayjs(dateRange.endDate).add(1, 'day') : null;
-    if(!wasPaused){this.play();}
-    else{
-      //Do this so that if we were paused before the date change, the pause icon is now a play icon
-      const pauseButton = document.getElementById("pause-btn");
-      pauseButton.click();
-    }
+
+    //Do this to maintain proper pause-btn display/state
+    const pauseButton = document.getElementById("pause-btn");
+    pauseButton.click();
   }
 }
