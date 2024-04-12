@@ -468,7 +468,21 @@ export class PuppetMaster {
   }
 
   incrementDate(){
-    if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
+    if(this.#date.isSame(dayjs('1854-12-03'))){
+      this.pause();
+      this.changeDate({
+        "startDate": new Date(1875, 5, 4),
+        "endDate": new Date(1875, 5, 4)
+      });
+    }
+    else if(this.#date.isSame(dayjs('1875-12-09'))){
+      this.pause();
+      this.changeDate({
+        "startDate": new Date(1882,4,20),
+        "endDate": new Date(1882,4,20),
+      });
+    }
+    else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
       document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
       if(this.#pauseDate?.isSame(this.#date)){
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
