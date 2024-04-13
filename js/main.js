@@ -9,8 +9,15 @@ const map = new mapboxgl.Map({
   zoom: 6 // starting zoom
 });
 
-/*Add Map controls - pause, restart, speed, etc */
-map.on('load', () => {
+map.on('load', async () => {
+
+  /*Add Map controls - pause, restart, speed, etc */
+  const el = document.createElement('div');
+  el.className = 'marker';
+  const wellandCanalMarker = new mapboxgl.Marker(el, {"anchor":"center"});
+  wellandCanalMarker.setLngLat([-79.21264, 43.048])
+    .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
+    .addTo(map);
 
   map.addControl(new mapboxgl.FullscreenControl({container: document.querySelector('body')}));
   // Add a map scale control to the map
@@ -27,15 +34,17 @@ map.on('load', () => {
    <span class="fa-layers-text fa-inverse" data-fa-transform="shrink-2" style="color:black">1x</span>
   </button>
   <button id="terrain-btn" class="clt8v4v3z00ct01qk2h369tp4" title="Change Terrain"><i class="fa-solid fa-layer-group"></i></button>
-  <button id="focus-btn" class="focus-disabled"><img src=data/binoculars-solidr.png width="14"/></button>
+  <button id="focus-btn" class="focus-disabled" title="Focus on a vessel when clicked"><img src=data/binoculars-solidr.png width="14"/></button>
   <button id="debug-btn" title="Debug" aria-label="debug">
     <i class="fa-solid fa-bug-slash"></i>
   </button>
-  <div id="react-dialog"></div>
+  <div id="calendar-dialog"></div>
+  <div id="about-dialog"></div>
   </div>`
   cctr.insertAdjacentHTML('beforeend',html);
 
-  webpackExports.createDateRange(document.getElementById("react-dialog"));
+  webpackExports.createDateRange(document.getElementById("calendar-dialog"));
+  webpackExports.createAboutDialog(document.getElementById("about-dialog"));
 
   const tbtn = document.getElementById('terrain-btn');
   tbtn.addEventListener("click", ()=>{
@@ -53,9 +62,6 @@ map.on('load', () => {
       }
     }
   });
-});
-
-map.on('load', async () => {
 
   const response = await fetch(
     'data/manifest.json'
@@ -72,6 +78,7 @@ map.on('load', async () => {
   const restartButton = document.getElementById('restart-btn')
   const speedButton = document.getElementById("speed-btn");
   const focusButton = document.getElementById("focus-btn");
+  const aboutButton = document.getElementById("about-btn");
 
   focusButton.addEventListener('click', ()=>{
     focusButton.classList.toggle('focus-disabled');

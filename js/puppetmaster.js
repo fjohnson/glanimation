@@ -654,6 +654,14 @@ export class PuppetMaster {
     //which makes the animation look like its lagging. Same applies to setting the date.
     this.addVessels();
     document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
+    //need to also clear any puppets on the map because this only happens in advancePuppets()
+    //if there are puppets to show. If this line wasn't here, then when a date is switched to
+    //that doesn't have any puppets to show, the existing layer is not cleared and any previous
+    //puppets are frozen on the map
+    this.#map.getSource(this.#puppetLayerName).setData({
+      "type": "FeatureCollection",
+      "features": []
+    });
     //Do this as this.#date points to current date+1
     this.#date = this.#date.add(1, 'day');
 

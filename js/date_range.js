@@ -55,20 +55,25 @@ function DateRangeDialog() {
     setState([item.selection]);
     dateSelection = item.selection;
   }
-
-  const disabledDates = eachDayOfInterval({
-    start: new Date(1854, 0, 1),
-    end: new Date(1854, 3, 3)
-  }).concat(
-    eachDayOfInterval({
-      start: new Date(1855, 0, 1),
-      end: new Date(1855, 11, 31)
-    })
-  );
+//Not working, not performant.
+  // const disabledDates = eachDayOfInterval({
+  //   start: new Date(1854, 0, 1),
+  //   end: new Date(1854, 3, 3)
+  // }).concat(
+  //   eachDayOfInterval({
+  //     start: new Date(1854, 11, 30),
+  //     end: new Date(1875, 4, 3)
+  //   })
+  // ).concat(
+  //   eachDayOfInterval({
+  //     start: new Date(1875, 11, 30),
+  //     end: new Date(1882, 3, 19)
+  //   })
+  // );
 
   return (
     <React.Fragment>
-      <button id="calendar-btn" onClick={handleClickOpen}>
+      <button id="calendar-btn" title="Calendar" onClick={handleClickOpen}>
         <i className="fa-solid fa-calendar-days"></i>
       </button>
       <Dialog
@@ -82,7 +87,7 @@ function DateRangeDialog() {
         minDate={new Date(1854,3,1)}
         maxDate={new Date(1882,11,30)}
         direction="vertical"
-        scroll={{ enabled: true }}
+        scroll={{ enabled: false }}
         ranges={state}
         showDateDisplay={false}
         disabledDates={disabledDates}

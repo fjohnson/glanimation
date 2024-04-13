@@ -1,9 +1,11 @@
 const path = require('path');
 
 module.exports = {
-    entry: './js/date_range.js',
+    entry: {
+      date_range: './js/barrelmodule.js',
+    },
     output: {
-        filename: 'date_range.js',
+        filename: 'barrel.js',
         path: path.resolve(__dirname, 'dist'),
         library: {
             name: 'webpackExports',
