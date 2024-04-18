@@ -618,6 +618,9 @@ export class PuppetMaster {
     }
   }
 
+  getCurrentDate(){
+    return this.#date;
+  }
 
   changeDate(dateRange){
     /**

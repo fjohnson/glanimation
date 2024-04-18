@@ -43,7 +43,7 @@ map.on('load', async () => {
   </div>`
   cctr.insertAdjacentHTML('beforeend',html);
 
-  webpackExports.createDateRange(document.getElementById("calendar-dialog"));
+  webpackExports.createCalendar(document.getElementById("calendar-dialog"));
   webpackExports.createAboutDialog(document.getElementById("about-dialog"));
 
   const tbtn = document.getElementById('terrain-btn');
