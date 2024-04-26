@@ -40,15 +40,32 @@ export function CalendarDialog(){
     setValue(nextValue);
   }
 
-  function isValidDate(tileArgs){
+  function isInvalidDate(tileArgs){
     const {activeStartDate, date, view} = tileArgs;
-    if(view !== 'century') {
-      return date.getFullYear() !== 1854 &&
-        date.getFullYear() !== 1876 &&
-        date.getFullYear() !== 1883;
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    const day = date.getDate();
+    if(view === 'month'){
+      return !((year === 1854 && month === 3 && day >= 4) ||
+               (year === 1854 && month >3) ||
+               (year === 1875 && month === 4 && day >= 4)   ||
+               (year === 1875 && month >4) ||
+               (year === 1882 && month === 3 && day >= 20) ||
+               (year === 1882 && month > 3))
     }
-    else {
-      return date.getFullYear() === 1861;
+    else if (view === 'year'){
+      return   (year === 1854 && month < 3) ||
+               (year === 1875 && month < 4) ||
+               (year === 1882 && month < 3) ||
+               (![1854,1875,1882].includes(year));
+    }
+    else if(view === 'decade') {
+      return ![1854,1875,1882].includes(year);
+    }
+    else if(view === 'century') {
+      // With min/max dates set only four possible decades are passed in the `date` variable
+      // These are 1851, 1861, 1871, 1881.
+      return year === 1861;
     }
   }
   return (
@@ -64,10 +81,10 @@ export function CalendarDialog(){
         <Calendar onChange={onChange}
                   value={value}
                   defaultActiveStartDate={ref.current.displayMonth}
-                  maxDate={new Date(1884,0,1)}
-                  minDate={new Date(1854,0,1)}
+                  maxDate={new Date(1882,11, 31)}
+                  minDate={new Date(1854,3,4)}
                   selectRange={true}
-                  tileDisabled={isValidDate}
+                  tileDisabled={isInvalidDate}
         />
       </Dialog>
     </React.Fragment>

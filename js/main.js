@@ -12,12 +12,12 @@ const map = new mapboxgl.Map({
 map.on('load', async () => {
 
   /*Add Map controls - pause, restart, speed, etc */
-  const el = document.createElement('div');
-  el.className = 'marker';
-  const wellandCanalMarker = new mapboxgl.Marker(el, {"anchor":"center"});
-  wellandCanalMarker.setLngLat([-79.21264, 43.048])
-    .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
-    .addTo(map);
+  // const el = document.createElement('div');
+  // el.className = 'marker';
+  // const wellandCanalMarker = new mapboxgl.Marker(el, {"anchor":"center"});
+  // wellandCanalMarker.setLngLat([-79.21264, 43.048])
+  //   .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
+  //   .addTo(map);
 
   map.addControl(new mapboxgl.FullscreenControl({container: document.querySelector('body')}));
   // Add a map scale control to the map

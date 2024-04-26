@@ -471,15 +471,15 @@ export class PuppetMaster {
     if(this.#date.isSame(dayjs('1854-12-03'))){
       this.pause();
       this.changeDate({
-        "startDate": new Date(1875, 5, 4),
-        "endDate": new Date(1875, 5, 4)
+        "startDate": new Date(1875, 4, 4),
+        "endDate": new Date(1875, 4, 4)
       });
     }
     else if(this.#date.isSame(dayjs('1875-12-09'))){
       this.pause();
       this.changeDate({
-        "startDate": new Date(1882,4,20),
-        "endDate": new Date(1882,4,20),
+        "startDate": new Date(1882,3,20),
+        "endDate": new Date(1882,3,20),
       });
     }
     else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
