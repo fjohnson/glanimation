@@ -14,20 +14,40 @@ body { margin: 0; padding: 0; }
 
 #banner {
   position: relative;
-  left: 5px;
-  top: 5px;
   font-family: "Nunito Sans", "Segoe UI Semibold", sans-serif;
+
+  flex-direction: column;
+  display: flex;
+  row-gap:1vh;
 
   p {
     font-weight: 600;
+  }
+  div{
+    display: flex;
+    justify-content: center;
     padding-left: .2em;
+    padding-right: .2em;
+    border-radius: 5px;
   }
-  p:first-child {
-    margin: .2em 0 .2em 0;
+  div:first-child {
+    background-color: rgb(10, 60, 95);
   }
-  p:last-child {
-    margin: 0;
-  }
+
+}
+
+#title {
+  color:white;
+  margin: 0;
+}
+
+#date {
+  color:black;
+  margin:0;
+  width: max-content;
+  background-color: rgb(245, 245, 245);
+  border-radius: 5px;
+  padding: 0 5px 0 5px;
 }
 
 /* CSS rules for screens between 601px and 1200px */
@@ -40,52 +60,6 @@ body { margin: 0; padding: 0; }
 @media (min-width: 950px){
   #title, #date {
     font-size:1.8em;
-  }
-}
-@media (min-width: 1301px){
-  #title, #date {
-    font-size:2.2em;
-  }
-}
-
-/*Animation related properties*/
-#title,#date{
-  background-image: linear-gradient(90deg, rgba(2,0,36,1) 0%, rgba(68,68,149,1) 33%, rgba(82,167,139,1) 100%);
-  /*Size must be something other than 100%. Use a larger size, and speed up the animation to get the same effect - see the note on background-position (https://developer.mozilla.org/en-US/docs/Web/CSS/background-position) that says:
-  It's worth mentioning that if your background-size is equal to the container size for a given axis, then a percentage position for that axis will have no effect because the "container-image difference" will be zero. You will need to offset using absolute values.*/
-  background-size: 200% auto;
-
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-
-  background-position: 0px;
-  /*Allows wraping of images, thus giving the looping effect*/
-  background-repeat: repeat;
-}
-
-#title{
-  /*animation: textclip 10s linear 1, slide-out-top 2s cubic-bezier(0.550, 0.085, 0.680, 0.530) 10s both;*/
-  animation: textclip 10s linear 1, 1s linear 10s normal both dateToBlack;
-}
-#date {
-  animation: textclip 10s linear 1, 1s linear 10s normal both dateToBlack;
-}
-
-@keyframes dateToBlack{
-  to {
-    -webkit-text-fill-color: initial;
-    background-image: none;
-    color: rgba(2,0,36,1);
-  }
-}
-@keyframes textclip {
-  to {
-    /*This actually pushes the background image from right to left.
-      The swipe effect at the end is when the end of the gradient has been
-      reached and the beginning is looping in from the right.
-    */
-    background-position: 200%;
   }
 }
 
@@ -206,6 +180,9 @@ body { margin: 0; padding: 0; }
   animation: tracking-in-expand 0.4s cubic-bezier(0.215, 0.610, 0.355, 1.000) both;
 }
 
+.lock-icon {
+  font-size: 1.2rem;
+}
 /*About dialog styles*/
 #about-content {
   padding: 1rem 1rem 1rem 1rem;
@@ -217,9 +194,10 @@ body { margin: 0; padding: 0; }
   margin-bottom: 0;
 }
 #about-header {
-  background-color: rgb(184, 197, 219);
-  color: rgb(1, 0, 18);
+  background-color: rgb(10, 60, 95);
+  color:white;
   padding: 0 0 0 5px;
+  border-radius: 5px;
 }
 /*React based calendar styles*/
 .rdrDefinedRangesWrapper{

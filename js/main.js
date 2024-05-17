@@ -18,6 +18,7 @@ map.on('load', async () => {
   // wellandCanalMarker.setLngLat([-79.21264, 43.048])
   //   .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
   //   .addTo(map);
+  setupLockMarker(map);
 
   map.addControl(new mapboxgl.FullscreenControl({container: document.querySelector('body')}));
   // Add a map scale control to the map
@@ -39,10 +40,14 @@ map.on('load', async () => {
     <i class="fa-solid fa-bug-slash"></i>
   </button>
   <div id="calendar-dialog"></div>
-  <div id="about-dialog"></div>
   </div>`
   cctr.insertAdjacentHTML('beforeend',html);
-
+  const aboutDialogButton = `
+  <div class="mapboxgl-ctrl mapboxgl-ctrl-group">
+    <div id="about-dialog"></div>
+  </div>
+  `;
+  cctr.insertAdjacentHTML('afterbegin',aboutDialogButton);
   webpackExports.createCalendar(document.getElementById("calendar-dialog"));
   webpackExports.createAboutDialog(document.getElementById("about-dialog"));
 
@@ -150,6 +155,73 @@ map.on('load', async () => {
 
 });
 
+function setupLockMarker(map){
+  const lockLocation = [-79.21264, 43.048];
+  map.loadImage('data/lockicon.png',(error, image) => {
+    if (error) {
+      throw error;
+    }
+
+    // Add the image to the map style.
+    map.addImage('lockicon', image);
+
+    // Add a data source containing one point feature.
+    map.addSource('lockloc', {
+      'type': 'geojson',
+      'data': {
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'geometry': {
+              'type': 'Point',
+              'coordinates': lockLocation
+            }
+          }
+        ]
+      }
+    });
+
+    // Add a layer to use the image to represent the data.
+    map.addLayer({
+      'id': 'lockicon',
+      'type': 'symbol',
+      'source': 'lockloc', // reference the data source
+      'layout': {
+        'icon-image': 'lockicon', // reference the image
+        'icon-size': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          0,.04,
+          12,1,
+          // 0,.1,
+          // 22,1.8
+        ]
+      }
+    });
+  });
+  map.on('click','lockicon', (e) => {
+    popup.remove();
+    popup.setLngLat(lockLocation).setHTML(
+      `<h1>TODO</h1>
+       <p>
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec quis diam tincidunt leo mollis vestibulum. Vestibulum et metus risus. Fusce varius euismod sem id dignissim. Curabitur accumsan finibus augue, rhoncus rutrum velit feugiat quis. Nullam neque dolor, ultrices id pellentesque vitae, convallis ac erat. Sed id odio nec quam tristique lobortis aliquam sit amet arcu. Sed eget purus lorem. Proin finibus, mauris eu dictum fermentum, mi est pulvinar arcu, at pharetra tellus est efficitur eros. Cras vel dui eu nibh lacinia tristique. Nulla facilisi. Ut vitae semper elit, ac varius nunc. Ut aliquet non sem ac porta. In et rutrum orci, vitae condimentum dolor. Morbi pulvinar erat vel est porta dapibus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos.</p>`
+    ).addTo(map);
+  });
+  map.on('mouseenter','lockicon', (e) => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', 'lockicon', () => {
+    map.getCanvas().style.cursor = '';
+  });
+  const popup = new mapboxgl.Popup({
+    closeButton: true,
+    closeOnClick: true,
+    className: 'lock-icon',
+    maxWidth: '600px'
+  });
+}
 //DEBUG of location estimation
 map.on('load', () => {
 
