@@ -12,13 +12,22 @@ const map = new mapboxgl.Map({
 map.on('load', async () => {
 
   /*Add Map controls - pause, restart, speed, etc */
-  // const el = document.createElement('div');
-  // el.className = 'marker';
-  // const wellandCanalMarker = new mapboxgl.Marker(el, {"anchor":"center"});
-  // wellandCanalMarker.setLngLat([-79.21264, 43.048])
-  //   .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
+
+  //Set up the LOCK 3 marker using a custom div element
+  const el = document.createElement('div');
+  el.className = 'lock-marker';
+  el.innerHTML = "<p>LOCK 3</p><div class='mapboxgl-popup-tip'></div>";
+  const wellandCanalMarker = new mapboxgl.Marker(el,{"anchor":"right"});
+  wellandCanalMarker.setLngLat([-79.243,43.154]).addTo(map)
+  .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
+
+  //Alternative way of setting up the LOCK 3 marker but using a popup. Drawback is that it
+  //has no option for being clickable and spawning its own popup. Need to implement that if
+  //you want this option.
+  // const popup = new mapboxgl.Popup({ closeOnClick: false, anchor:'right', closeButton:false, className:"lock-marker-popup" })
+  //   .setLngLat([-79.243,43.154])
+  //   .setHTML('<h1>LOCK 3</h1>')
   //   .addTo(map);
-  setupLockMarker(map);
 
   map.addControl(new mapboxgl.FullscreenControl({container: document.querySelector('body')}));
   // Add a map scale control to the map
@@ -156,8 +165,10 @@ map.on('load', async () => {
 });
 
 function setupLockMarker(map){
-  const lockLocation = [-79.21264, 43.048];
-  map.loadImage('data/lockicon.png',(error, image) => {
+  //This function is necessary over just using a simple popup as it resizes the image
+  //as the screen is zoomed out or zoomed in.
+  const lockLocation = [-79.243, 43.154];
+  map.loadImage('data/extremecanaller2.png',(error, image) => {
     if (error) {
       throw error;
     }

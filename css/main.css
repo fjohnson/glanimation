@@ -130,14 +130,57 @@ body { margin: 0; padding: 0; }
   border-top-color: rgba(255, 255, 255, 0.8);
 }
 
-.marker {
-  background-image: url('../data/lockicon.png');
+/*.marker {*/
+/*  background-image: url('../data/lockicon.png');*/
+/*  background-size: cover;*/
+/*  width: 40px;*/
+/*  height: 40px;*/
+/*  border-radius: 50%;*/
+/*  cursor: pointer;*/
+/*}*/
+.lock-marker {
+  background-color: rgb(9, 60, 95);
   background-size: cover;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
+  border-radius: 5px;
+  display: flex;
+  p {
+    font-size: 12px;
+    color:white;
+    padding:0 5px 0 5px;
+    font-family: "Nunito Sans", "Segoe UI Semibold", sans-serif;
+    font-weight:650;
+    margin: 0;
+  }
+  .mapboxgl-popup-tip {
+    align-self: center;
+    border-left-color: #fff;
+    border-right: none;
+  }
+  :hover {
+    cursor: pointer;
+  }
 }
+
+/*CSS rules for creating a LOCK 3 marker but with a popup*/
+/*.lock-marker-popup {*/
+/*  background-color: rgb(9, 60, 95, 0.8);*/
+/*  background-size: cover;*/
+/*  font-size: 12px;*/
+/*  border-radius: 5px;*/
+/*  .mapboxgl-popup-content {*/
+/*    background-color: rgb(9, 60, 95, 0.8);*/
+/*    font-size: 6px;*/
+/*    color:white;*/
+/*    padding:0 5px 0 5px;*/
+/*    font-family: "Nunito Sans", "Segoe UI Semibold", sans-serif;*/
+/*    font-weight:650;*/
+/*    text-rendering: optimizeLegibility;*/
+/*    h1 {*/
+/*      margin-top: 0;*/
+/*      margin-bottom: 0;*/
+/*    }*/
+/*  }*/
+/*}*/
 
 .popup {
   min-width: 230px;
