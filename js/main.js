@@ -125,7 +125,7 @@ map.on('load', async () => {
     webpackExports.callbackContainer.pop();
     webpackExports.callbackContainer.push(puppeteer);
 
-    if(pauseButton.classList.contains('pause')){
+    if(pauseButton.getAttribute('title')==='Play'){
       //If the button is paused on restart, change its state to playing
       pauseButton.click();
     }else{

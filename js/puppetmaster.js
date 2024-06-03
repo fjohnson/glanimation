@@ -191,7 +191,7 @@ export class PuppetMaster {
         spacing = 1.2;
     }
     const feature = this.#completedPrecompute ? this.#routeMap[routeName][spacing] :
-                                                          this.elongatePaths(this.#routeMap[routeName],spacing);
+                                                this.elongatePaths(this.#routeMap[routeName],spacing);
     const puppet = new Puppet(feature, vesselInfo);
 
     this.#puppets.push(puppet);
