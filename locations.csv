@@ -89,7 +89,7 @@ Index,Location,Final,Coord,Monk
 123,Grimsby,"Grimsby, Ontario, Canada",,"Grimsby, Ontario, Canada"
 124,Hamilton,"Hamilton Harbour, Hamilton, Ontario L8L 8B4, Canada",,"Hamilton Harbour, Ontario, Canada"
 126,Henderson,"8397 Cornell Road, Henderson Harbor, New York 13651, United States",,"8397 Cornell Rd, Henderson Harbor, NY 13651, United States"
-125,Houghton,"Houghton, Michigan 49931, United States",,Houghton Michigan 49931
+125,Houghton,"1806 Lakeshore Road, Port Rowan, Ontario N0E 1M0, Canada","42.578655,-80.565018","Houghton Township, Ontario 1806 Lakeshore Rd, Port Rowan, ON N0E 1M0"
 127,Huron,"30 Main Street, Huron, Ohio 44839, United States",,"30 Main St, Huron, OH 44839, United States"
 128,Inverhuron,"Inverhuron Beach, Tiverton, Ontario N0G 2T0, Canada",,"Inverhuron Beach, Tiverton, Ontario N0G 2T0, Canada"
 129,Iona,"N0L 1K0, Fingal, Ontario, Canada","42.637846, -81.358854",Port Talbot ON N0L 1K0
@@ -138,7 +138,7 @@ Index,Location,Final,Coord,Monk
 185,New Castle,"L1B 0A1, Newcastle, Ontario, Canada",,"160 Lakebreeze Dr, Newcastle, ON L1B 0A1 (Lake Ontario)"
 186,New Glasgow,"8536 Havens Lake Rd, Rodney, Ontario N0L 2C0, Canada",,"Port Glasgow Yacht Club 8536 Haven's Lake Rd, Rodney, ON N0L 2C0 (Lake Erie)"
 187,Niagara,"Niagara-on-the-Lake, Ontario, Canada",,"Niagara on the Lake, Ontario  (Lake Ontario)"
-188,Normandale,"Normandale Park, Edina, Minnesota, United States",,"Normandale Park, Edina, Minnesota, United States"
+188,Normandale,"2 Mill Lane, Vittoria, Ontario N0E 1W0, Canada","42.710685,-80.311816","98 Mill Ln #2, Vittoria, ON N0E 1W0"
 189,Northport,"105 Rose Street, Northport, Michigan 49670, United States",,"105 Rose St, Northport, MI 49670, United States"
 190,Oak Harbour,"170 Mill Street, Oak Harbor, Ohio 43449, United States",,"170 Mill St, Oak Harbor, OH 43449, United States"
 191,Oak Orchard,"Oak Orchard Lighthouse, Waterport, New York, United States",,"Oak Orchard Lighthouse, Waterport, New York, United States"
@@ -151,7 +151,7 @@ Index,Location,Final,Coord,Monk
 200,Penetanguishene,"4 Main Street, Penetanguishene, Ontario L9M 1T1, Canada",,"4 Main St, Penetanguishene, ON L9M 1T1"
 201,Picton,"Picton, Ontario, Canada",,"Picton, Ontario, Canada"
 202,Pigeon Bay,"Pigeon Bay Rd, Dunchurch, Ontario P0A 1G0, Canada",,"Pigeon Bay Rd, Dunchurch, Ontario P0A 1G0, Canada"
-203,Plymouth,"Plymouth, Minnesota, United States",,"Plymouth, Minnesota, United States"
+203,Plymouth,"214 Pennsylvania Avenue, Sheboygan, Wisconsin 53081, United States","43.750032,-87.703726","214 Pennsylvania Ave, Sheboygan, WI 53081, United States Lake Michigan"
 204,Plympton,"5046 Lakeshore Road, Town Of Plympton Wyoming, Ontario N0N 1J6, Canada",,"5046 Lakeshore Rd, Plympton-Wyoming, ON N0N 1J6"
 205,Point Au Sable,"North Ausable Road, East Tawas, Michigan 48730, United States",,"Au Sable Charter Twp, MI 48730, USA"
 206,Point Barte,"Bare Point Road, Alpena, Michigan 49707, United States",,"Bare Point Alpena Township, MI 49707, USA"
