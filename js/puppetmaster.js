@@ -40,10 +40,7 @@ export class PuppetMaster {
     this.#popup = this.setupPopup();
     this.addPositionLayer(this.#puppetLayerName);
 
-    for(let feature of data.routes.features){
-      this.#routeMap[feature['properties']['path']] = feature;
-    }
-
+    this.#routeMap = this.groupRouteByYear(data.routes.features);
     //Periodically remove puppets that are no longer on the map
     this.#listCleaner = setInterval(()=>{
       const cleaned = [];
@@ -59,6 +56,22 @@ export class PuppetMaster {
 
   }
 
+  groupRouteByYear(routes){
+    const routeMap = {
+      1854: {},
+      1875: {},
+      1882: {}
+    }
+    const pathToCoord = new Map();
+    for(let feature of routes){
+      pathToCoord.set(feature.properties.path, feature.geometry.coordinates)
+    }
+    for(let ship of this.#manifest){
+      const shipPath = `${ship['Where From']}+${ship['Where Bound']}`;
+      routeMap[ship.Date.year()][shipPath] = pathToCoord.get(shipPath);
+    }
+    return routeMap;
+  }
   preComputeElongatedPaths(){
     /*
     * Elongate paths in the background using a webworker. Do it at a bit at a time because if
@@ -69,41 +82,56 @@ export class PuppetMaster {
     const pathWorker = new Worker("js/pathworker.js");
     const ncount = 20;
     let i = ncount;
-    const entries = Object.entries(this.#routeMap)
-    const newRouteMap = {};
+    const newRouteMap = {1854: {}, 1875: {}, 1882: {}};
+    const years = [1882, 1875, 1854];
+    let currentYear = years.pop();
+    // array of arrays. each array is [path,coords]
+    let entries = Object.entries(this.#routeMap[currentYear]);
 
     function getSlice(start, count){
       if(start>entries.length-1) return null;
       const slice = {};
-      for(const [route,feature] of entries.slice(start,start+count)){
-        slice[route] = feature;
+      for(const [route,coords] of entries.slice(start,start+count)){
+        slice[route] = coords;
       }
       return slice;
     }
+
     pathWorker.onmessage = (e) => {
-      for(let [k,v] of Object.entries(e.data)){
-        newRouteMap[k] = v;
+
+      let [year,routes] = e.data;
+      for(let [path,lengthedRoutes] of Object.entries(routes)){
+        newRouteMap[year][path] = lengthedRoutes;
       }
+
       const slice = getSlice(i,ncount);
       if(slice!==null){
-        pathWorker.postMessage(slice);
+        pathWorker.postMessage([currentYear,slice]);
         i+=ncount;
-      }else{
-        this.#completedPrecompute = true;
-        this.#routeMap = newRouteMap;
+      }
+      else{
+        currentYear = years.pop();
+        if(currentYear!==undefined){
+          entries = Object.entries(this.#routeMap[currentYear]);
+          i = ncount;
+          pathWorker.postMessage([currentYear, getSlice(0, ncount)]);
+        }
+        else{
+          this.#completedPrecompute = true;
+          this.#routeMap = newRouteMap;
+        }
       }
     };
-    pathWorker.postMessage(getSlice(0,ncount))
+    pathWorker.postMessage([currentYear, getSlice(0,ncount)])
   }
 
-  elongatePaths(feature, segmentSize = 0.5){
+  elongatePaths(coords, segmentSize = 0.5){
     //A function for addition additional points along a precomputed shortest path from start->end
     //This is used because the animation draws a point for each vessel every x milliseconds
     //and by adding more points the animation not only becomes smoother, but it slows it down
     //and prevents the vessels from looking like they are "teleporting".
     //segment_size: additional points are added every segment_size KM
 
-    let coords = feature.geometry.coordinates;
     let elongated_coords = [];
     let from = coords[0];
 
@@ -190,8 +218,9 @@ export class PuppetMaster {
       default:
         spacing = 1.2;
     }
-    const feature = this.#completedPrecompute ? this.#routeMap[routeName][spacing] :
-                                                this.elongatePaths(this.#routeMap[routeName],spacing);
+    const feature = this.#completedPrecompute ?
+      this.#routeMap[this.#date.year()][routeName][spacing] :
+      this.elongatePaths(this.#routeMap[this.#date.year()][routeName],spacing);
     const puppet = new Puppet(feature, vesselInfo);
 
     this.#puppets.push(puppet);
@@ -554,8 +583,8 @@ export class PuppetMaster {
           "features": []
       }
       for(let [positions,speed] of [[slowPositions,'slow'],
-                                                           [mediumPositions,'medium'],
-                                                           [fastPositions,'fast']]){
+                                   [mediumPositions,'medium'],
+                                   [fastPositions,'fast']]){
         if(positions.length){
           const feature = turf.multiPoint(positions, {'speed': speed});
           puppetPositions.features.push(feature);
