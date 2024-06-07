@@ -3,12 +3,13 @@
 // import turf from "@turf/helpers";
 
 importScripts('https://unpkg.com/@turf/turf@6/turf.min.js');
-const DEFINED_SPACING = {
-  1854:[0.5, 1.0, 1.2],
-  1875:[0.5, 1.0, 1.2],
-  1882:[0.5, 1.0, 1.2],
+const DEFINED_VESSELS = {
+  1854:['Schooner','Propeller','Brigantine','Barkentine','Other'],
+  1875:['Schooner','Propeller','Brigantine','Barkentine','Tug','Scow', 'Steamer','Other'],
+  1882:['Schooner','Propeller','Tug','Scow','Steamer','Other'],
 };
-function elongatePaths(coords, segmentSize = 0.5){
+let DEFINED_SPACING;
+function elongatePaths(coords, segmentSize){
   //A function for addition additional points along a precomputed shortest path from start->end
   //This is used because the animation draws a point for each vessel every x milliseconds
   //and by adding more points the animation not only becomes smoother, but it slows it down
@@ -44,13 +45,21 @@ function elongatePaths(coords, segmentSize = 0.5){
   return {"type": "Feature", "geometry": {"type": "LineString", "coordinates": elongated_coords}};
 }
 onmessage = (e) => {
-  const [year, routes] = e.data;
+  let year, routes;
+  if(!DEFINED_SPACING){
+    [DEFINED_SPACING,year,routes] = e.data;
+  }else{
+    [year,routes] = e.data;
+  }
 
   const computedPaths = {}
   for(const [route,coords] of Object.entries(routes)){
     const lengthenedPath = {}
-    for(const spacing of DEFINED_SPACING[year]){
-      lengthenedPath[spacing] = elongatePaths(coords, spacing);
+    for(const vessel of DEFINED_VESSELS[year]){
+      const spacing = DEFINED_SPACING[vessel];
+      if(!(spacing in lengthenedPath)){ // some vessels have the same spacing so no point in calcing again
+        lengthenedPath[spacing] = elongatePaths(coords, spacing);
+      }
     }
     computedPaths[route] = lengthenedPath;
   }

@@ -19,6 +19,7 @@ export class PuppetMaster {
   #animateDelay = 20;
   #animateIterations = 0;
   #completedPrecompute = false;
+  #vesselSpacing = {};
 
   //Variables relating to popup / route tracking
   #popup;
@@ -52,8 +53,41 @@ export class PuppetMaster {
       this.#puppets = cleaned;
     }, 5000);
 
+    const vesselSpeeds = [
+      ['Schooner',5],['Brigantine',4], ['Barkentine',4],
+      ['Propeller',8],['Steamer',8],['Tug',10],
+      ['Scow',4], ['Other',3]];
+    for(let [vessel,speed] of vesselSpeeds){
+      this.#vesselSpacing[vessel] = this.setVesselSpacing(speed);
+    }
     this.preComputeElongatedPaths();
 
+  }
+
+  setVesselSpacing(mph){
+    /*Calculate the spacing necessary to achieve a speed for a boat
+    * The way this is calculated is as follows:
+    * this.#dayDelay is the number of times ships are advanced in a day.
+    * This is X it(iterations)/day. From this we have Y it/hr.
+    * Units of spacing are in km/it
+    * Desired speed - call this 'D' - is then: D km/hr = Y it/hr * S km/it
+    * However since speeds are defined in mph, we convert the final answer to mph.
+    *
+    * - Example calculation 200it/day = 8.33 it/hr. Desired vessel speed is 10km/hr.
+    * - Answer is 10km/hr = 8.33 it/hr * x km/it; x = 1.2
+    *
+    *
+    * Some other notes:
+    * realistically cannot increase spacing past 1.2, otherwise it looks too jerky, even if the animation is slowed down
+    * but we can't use a really fine spacing like 0.1 and increase the speed of the animation because its already at
+    * 20ms at 1x, and 5ms at 4x!!!, literally cannot animate any faster, therefore the only realistic solution is to
+    * increase the number of iterations per day (stretch the length of a day) if we need to increase the speed of ships
+    * */
+    const kmPerMile = 1.609;
+    const Y = this.#dayDelay / 24;
+    const D = mph;
+    const S = (D / Y) * kmPerMile;
+    return parseFloat(S.toFixed(2));
   }
 
   groupRouteByYear(routes){
@@ -119,13 +153,17 @@ export class PuppetMaster {
         else{
           this.#completedPrecompute = true;
           this.#routeMap = newRouteMap;
+          performance.mark('Precompute end');
+          const duration = performance.measure('Precompute').duration.toFixed(2)
+          console.log(`Path precompute completed in ${duration} ms`);
         }
       }
     };
-    pathWorker.postMessage([currentYear, getSlice(0,ncount)])
+    performance.mark('Precompute start');
+    pathWorker.postMessage([this.#vesselSpacing, currentYear, getSlice(0,ncount)])
   }
 
-  elongatePaths(coords, segmentSize = 0.5){
+  elongatePaths(coords, segmentSize){
     //A function for addition additional points along a precomputed shortest path from start->end
     //This is used because the animation draws a point for each vessel every x milliseconds
     //and by adding more points the animation not only becomes smoother, but it slows it down
@@ -206,21 +244,62 @@ export class PuppetMaster {
       return;
     }
     const routeName = `${vesselInfo['Where From']}+${vesselInfo['Where Bound']}`;
-    let spacing;
+
+    /*
+     *   Ship Type   Count   Years             Reduced
+     *   Schooner    5368    1854 1875 1882    -
+     *   Propeller   1004    1854 1875 1882    -
+     *   Brigantine  477     1854 1875         -
+     *   Barkentine  408     1854 1875         -
+     *   Tug         318          1875 1882    -
+     *   Barge       266          1875 1882    Schooner
+     *   Scow        128          1875 1882    -
+     *   Steam Barge 41           1875 1882    Steamer
+     *   Barque      13           1875         Barkentine
+     *   Yacht       8            1875 1882    Other
+     *   Boat        3       1854      1882    Other
+     *   Raft        3            1875         Other
+     *   Dredge      2            1875         Other
+     *   Sailboat    1       1854              Other
+     *   Steam Yacht 1                 1882    Steamer
+     *   Steamer     1            1875         -
+     * */
+    let vesselType;
     switch(vesselInfo['Vessel Type']){
       case 'Schooner':
-        spacing = 0.5;
-        break;
-      case 'Barkentine':
+      case 'Propeller':
       case 'Brigantine':
-        spacing = 1.0;
+      case 'Barkentine':
+      case 'Tug':
+      case 'Scow':
+      case 'Steamer':
+        vesselType = vesselInfo['Vessel Type'];
         break;
-      default:
-        spacing = 1.2;
+      case 'Barge':
+        vesselType = 'Schooner';
+        break;
+      case 'Barque':
+        vesselType = 'Barkentine';
+        break;
+      case 'Steam Barge':
+      case 'Steam Yacht':
+        vesselType = 'Steamer';
+        break;
+      case 'Yacht':
+      case 'Boat':
+      case 'Raft':
+      case 'Dredge':
+      case 'Sailboat':
+        vesselType = 'Other';
+        break
     }
+    let spacing = this.#vesselSpacing[vesselType];
+    if(spacing === undefined) spacing = 0.5; // sane default
+
+    const yearNow = this.#date.year();
     const feature = this.#completedPrecompute ?
-      this.#routeMap[this.#date.year()][routeName][spacing] :
-      this.elongatePaths(this.#routeMap[this.#date.year()][routeName],spacing);
+      this.#routeMap[yearNow][routeName][spacing] :
+      this.elongatePaths(this.#routeMap[yearNow][routeName],spacing);
     const puppet = new Puppet(feature, vesselInfo);
 
     this.#puppets.push(puppet);
