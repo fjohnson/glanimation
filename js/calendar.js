@@ -47,16 +47,20 @@ export function CalendarDialog(){
     const day = date.getDate();
     if(view === 'month'){
       return !((year === 1854 && month === 3 && day >= 4) ||
-               (year === 1854 && month >3) ||
+               (year === 1854 && month >3 && month < 11) ||
+               (year === 1854 && month === 11 && day <= 2) ||
+
                (year === 1875 && month === 4 && day >= 4)   ||
-               (year === 1875 && month >4) ||
+               (year === 1875 && month >4 && month < 11) ||
+               (year === 1875 && month === 11 && day <= 9) ||
+
                (year === 1882 && month === 3 && day >= 20) ||
-               (year === 1882 && month > 3))
+               (year === 1882 && month > 3 && month < 11))
     }
     else if (view === 'year'){
       return   (year === 1854 && month < 3) ||
                (year === 1875 && month < 4) ||
-               (year === 1882 && month < 3) ||
+               (year === 1882 && (month < 3 || month === 11)) ||
                (![1854,1875,1882].includes(year));
     }
     else if(view === 'decade') {

@@ -153,7 +153,8 @@ export class PuppetMaster {
           this.#completedPrecompute = true;
           this.#routeMap = newRouteMap;
           performance.mark('Precompute end');
-          const duration = performance.measure('Precompute').duration.toFixed(2)
+          const duration = performance.measure('Precompute').duration.toFixed(2);
+          performance.clearMarks();
           console.log(`Path precompute completed in ${duration} ms`);
         }
       }
@@ -529,23 +530,25 @@ export class PuppetMaster {
   }
 
   incrementDate(){
-    if(this.#date.isSame(dayjs('1854-12-03'))){
+    if(this.#date.isSame(dayjs('1854-12-12'))){
       this.pause();
       this.changeDate({
         "startDate": new Date(1875, 4, 4),
         "endDate": new Date(1875, 4, 4)
       });
+      this.updateLegend(this.#date.year());
+
     }
-    else if(this.#date.isSame(dayjs('1875-12-09'))){
+    else if(this.#date.isSame(dayjs('1875-12-17'))){
       this.pause();
       this.changeDate({
         "startDate": new Date(1882,3,20),
         "endDate": new Date(1882,3,20),
       });
+      this.updateLegend(this.#date.year());
     }
     else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
       document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
-      this.updateLegend(this.#date.year());
       if(this.#pauseDate?.isSame(this.#date)){
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
         this.#pauseDate = null;
@@ -599,9 +602,7 @@ export class PuppetMaster {
         puppet.advance();
       }
     }
-    if(positions.length){
-      mapSrc.setData(turf.featureCollection(positions));
-    }
+    mapSrc.setData(turf.featureCollection(positions));
 
   }
 
