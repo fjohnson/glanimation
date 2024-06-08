@@ -20,6 +20,9 @@ export class PuppetMaster {
   #animateIterations = 0;
   #completedPrecompute = false;
   #vesselSpacing = {};
+  #vesselSpeeds = [['Schooner',5],['Brigantine',4], ['Barkentine',4],
+                   ['Propeller',8],['Steamer',8],['Tug',10],
+                   ['Scow',4], ['Other',3]];
 
   //Variables relating to popup / route tracking
   #popup;
@@ -53,11 +56,7 @@ export class PuppetMaster {
       this.#puppets = cleaned;
     }, 5000);
 
-    const vesselSpeeds = [
-      ['Schooner',5],['Brigantine',4], ['Barkentine',4],
-      ['Propeller',8],['Steamer',8],['Tug',10],
-      ['Scow',4], ['Other',3]];
-    for(let [vessel,speed] of vesselSpeeds){
+    for(let [vessel,speed] of this.#vesselSpeeds){
       this.#vesselSpacing[vessel] = this.setVesselSpacing(speed);
     }
     this.preComputeElongatedPaths();
@@ -218,14 +217,15 @@ export class PuppetMaster {
         'circle-stroke-width': 2,
         'circle-color': [
           'match',
-          ['get', 'speed'],
-          'slow',
-          '#4264fb',
-          'medium',
-          'green',
-          'fast',
-          'purple',
-          '#ccc' //necessary 'other' case
+          ['get', 'vesselType'], //mapbox gl expression
+          'Schooner','#4264fb',
+          'Brigantine','#008000',
+          'Barkentine','#008000',
+          'Propeller','#790084',
+          'Steamer','#790084',
+          'Tug','#DC143C',
+          'Scow','#E9967A',
+          '#DAA520' //necessary 'other' case
         ],
         'circle-stroke-color': 'white'
       }
@@ -245,54 +245,7 @@ export class PuppetMaster {
     }
     const routeName = `${vesselInfo['Where From']}+${vesselInfo['Where Bound']}`;
 
-    /*
-     *   Ship Type   Count   Years             Reduced
-     *   Schooner    5368    1854 1875 1882    -
-     *   Propeller   1004    1854 1875 1882    -
-     *   Brigantine  477     1854 1875         -
-     *   Barkentine  408     1854 1875         -
-     *   Tug         318          1875 1882    -
-     *   Barge       266          1875 1882    Schooner
-     *   Scow        128          1875 1882    -
-     *   Steam Barge 41           1875 1882    Steamer
-     *   Barque      13           1875         Barkentine
-     *   Yacht       8            1875 1882    Other
-     *   Boat        3       1854      1882    Other
-     *   Raft        3            1875         Other
-     *   Dredge      2            1875         Other
-     *   Sailboat    1       1854              Other
-     *   Steam Yacht 1                 1882    Steamer
-     *   Steamer     1            1875         -
-     * */
-    let vesselType;
-    switch(vesselInfo['Vessel Type']){
-      case 'Schooner':
-      case 'Propeller':
-      case 'Brigantine':
-      case 'Barkentine':
-      case 'Tug':
-      case 'Scow':
-      case 'Steamer':
-        vesselType = vesselInfo['Vessel Type'];
-        break;
-      case 'Barge':
-        vesselType = 'Schooner';
-        break;
-      case 'Barque':
-        vesselType = 'Barkentine';
-        break;
-      case 'Steam Barge':
-      case 'Steam Yacht':
-        vesselType = 'Steamer';
-        break;
-      case 'Yacht':
-      case 'Boat':
-      case 'Raft':
-      case 'Dredge':
-      case 'Sailboat':
-        vesselType = 'Other';
-        break
-    }
+    let vesselType = Puppet.getVesselType(vesselInfo);
     let spacing = this.#vesselSpacing[vesselType];
     if(spacing === undefined) spacing = 0.5; // sane default
 
@@ -592,6 +545,7 @@ export class PuppetMaster {
     }
     else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
       document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
+      this.updateLegend(this.#date.year());
       if(this.#pauseDate?.isSame(this.#date)){
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
         this.#pauseDate = null;
@@ -626,53 +580,31 @@ export class PuppetMaster {
     }, delay);
   }
   advancePuppets(){
-      const mapSrc = this.#map.getSource(this.#puppetLayerName);
+    const mapSrc = this.#map.getSource(this.#puppetLayerName);
 
-      /*This happens when the map style changes (i.e, streets-v12, outdoors-v12, etc)
-      has been changed. When a style change occurs all layers and sources are cleared
-      and need to be re-added. Map emits an on('styledata') event when it's ready for
-      the additions. If we got here, it's because this timer happened after a change
-      but before the styledata event was emitted. Just return until we can redraw*/
-      if(mapSrc === undefined){
-        return;
-      }
+    /*This happens when the map style changes (i.e, streets-v12, outdoors-v12, etc)
+    has been changed. When a style change occurs all layers and sources are cleared
+    and need to be re-added. Map emits an on('styledata') event when it's ready for
+    the additions. If we got here, it's because this timer happened after a change
+    but before the styledata event was emitted. Just return until we can redraw*/
+    if(mapSrc === undefined){
+      return;
+    }
 
-      const slowPositions = [];
-      const mediumPositions = [];
-      const fastPositions = [];
-      for(let puppet of this.#puppets) {
-        if (!puppet.isDone) {
-          switch (puppet.speed) {
-            case 'slow':
-              slowPositions.push(puppet.curPosition);
-              break;
-            case 'medium':
-              mediumPositions.push(puppet.curPosition);
-              break;
-            case 'fast':
-              fastPositions.push(puppet.curPosition);
-              break;
-          }
-          puppet.advance();
-        }
+    const positions = [];
+    for(let puppet of this.#puppets) {
+      if (!puppet.isDone) {
+        const vtype = Puppet.getVesselType(puppet.vesselInfo);
+        positions.push(turf.point(puppet.curPosition, {'vesselType': vtype}));
+        puppet.advance();
       }
+    }
+    if(positions.length){
+      mapSrc.setData(turf.featureCollection(positions));
+    }
 
-      let puppetPositions = {
-          "type": "FeatureCollection",
-          "features": []
-      }
-      for(let [positions,speed] of [[slowPositions,'slow'],
-                                   [mediumPositions,'medium'],
-                                   [fastPositions,'fast']]){
-        if(positions.length){
-          const feature = turf.multiPoint(positions, {'speed': speed});
-          puppetPositions.features.push(feature);
-        }
-      }
-      if(puppetPositions.features.length){
-        this.#map.getSource(this.#puppetLayerName).setData(puppetPositions);
-      }
   }
+
   setRouteCompletionData(puppet){
     const {done, remaining} = puppet.coordsProgress;
     /*This may throw an error if the map's style has been changed but reinitLayers() has not executed yet
@@ -732,11 +664,12 @@ export class PuppetMaster {
 
   changeDate(dateRange){
     /**
-     * Pause - clear timers (Pause done in date_range.js in handleClickOpen)
+     * Pause - clear timers (Pause done in calendar.js in handleClickOpen)
      * Clear puppet list
      * Clear layers
      * Remove tracking puppet popup, distance layers
      * Change date (title)
+     * Update legend if year change
      * change this#.curIndex to match this.#manifest date
      * Add puppets
      */
@@ -765,6 +698,7 @@ export class PuppetMaster {
     //which makes the animation look like its lagging. Same applies to setting the date.
     this.addVessels();
     document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
+    this.updateLegend(this.#date.year());
     //need to also clear any puppets on the map because this only happens in advancePuppets()
     //if there are puppets to show. If this line wasn't here, then when a date is switched to
     //that doesn't have any puppets to show, the existing layer is not cleared and any previous
@@ -784,5 +718,58 @@ export class PuppetMaster {
     //Do this to maintain proper pause-btn display/state
     const pauseButton = document.getElementById("pause-btn");
     pauseButton.click();
+  }
+
+  updateLegend(year){
+    const legend = document.getElementById("legend-container");
+    let html;
+
+    if(year === 1854){
+      html =
+       `<p class="legend-header">Vessel Types</p>
+        <div class="circle schooner"></div>
+        <div class="circle barkentine-brigantine"></div>
+        <div class="circle propeller-steamer"></div>
+        <div class="circle other-vessel"></div>
+        <p>Schooner</p>
+        <p>Barkentine & Brigantine</p>
+        <p>Propeller & Steamer</p>
+        <p>Other</p>`
+      legend.style.gridTemplateRows = 'repeat(5, 1fr)';
+    }
+    else if(year === 1875){
+      html =
+        `<p class="legend-header">Vessel Types</p>
+         <div class="circle schooner"></div>
+         <div class="circle barkentine-brigantine"></div>
+         <div class="circle propeller-steamer"></div>
+         <div class="circle scow"></div>
+         <div class="circle tug"></div>
+         <div class="circle other-vessel"></div>
+         <p>Schooner</p>
+         <p>Barkentine & Brigantine</p>
+         <p>Propeller & Steamer</p>
+         <p>Scow</p>
+         <p>Tug</p>
+         <p>Other</p>`;
+      legend.style.gridTemplateRows = 'repeat(7, 1fr)';
+    }
+    else if(year === 1882){
+      html =
+       `<p class="legend-header">Vessel Types</p>
+       <div class="circle schooner"></div>
+       <div class="circle propeller-steamer"></div>
+       <div class="circle scow"></div>
+       <div class="circle tug"></div>
+       <div class="circle other-vessel"></div>
+       <p>Schooner</p>
+       <p>Propeller & Steamer</p>
+       <p>Scow</p>
+       <p>Tug</p>
+       <p>Other</p>`;
+      legend.style.gridTemplateRows = 'repeat(6, 1fr)';
+    }
+    legend.innerHTML = html;
+
   }
 }

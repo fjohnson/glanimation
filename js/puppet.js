@@ -8,20 +8,66 @@ export class Puppet{
     this.name = vesselInfo['Name of Vessel'];
     this.isDone = false;
     this.vesselInfo = vesselInfo;
-    this.speed = this.#setSpeed();
+    // this.vesselInfo['Vessel Type']
   }
 
-  #setSpeed(){
-    switch(this.vesselInfo['Vessel Type']){
-      case 'Schooner': return 'slow';
-      case 'Barkentine':
-      case 'Brigantine': return 'medium';
-      default: return 'fast';
-    }
-  }
   setOffset(offset){
     this.#cordIdx = offset;
     this.curPosition = this.#coordinates[offset];
+  }
+
+  static getVesselType(vesselInfo){
+    /*   Vessel type influences two factors:
+     * 1) The speed of the craft
+     * 2) The color of the craft on the map, as dictated by the legend
+     *
+     * Below is a rundown of the counts and types of vessels in the entire dataset
+     * For the purposes of the legend, certain vessels should be grouped together.
+     * For instance Barge are treated as Schooners, but Scow and Tugs are their own group.
+     *
+     * In terms of speed, see puppetmaster.#vesselSpeed for a definition of the speeds
+     *
+     *   Ship Type   Count   Years             Reduced
+     *   Schooner    5368    1854 1875 1882    -
+     *   Propeller   1004    1854 1875 1882    -
+     *   Brigantine  477     1854 1875         -
+     *   Barkentine  408     1854 1875         -
+     *   Tug         318          1875 1882    -
+     *   Barge       266          1875 1882    Schooner
+     *   Scow        128          1875 1882    -
+     *   Steam Barge 41           1875 1882    Steamer
+     *   Barque      13           1875         Barkentine
+     *   Yacht       8            1875 1882    Other
+     *   Boat        3       1854      1882    Other
+     *   Raft        3            1875         Other
+     *   Dredge      2            1875         Other
+     *   Sailboat    1       1854              Other
+     *   Steam Yacht 1                 1882    Steamer
+     *   Steamer     1            1875         -
+     * */
+    switch(vesselInfo['Vessel Type']){
+      case 'Schooner':
+      case 'Propeller':
+      case 'Brigantine':
+      case 'Barkentine':
+      case 'Tug':
+      case 'Scow':
+      case 'Steamer':
+        return vesselInfo['Vessel Type'];
+      case 'Barge':
+        return 'Schooner';
+      case 'Barque':
+        return 'Barkentine';
+      case 'Steam Barge':
+      case 'Steam Yacht':
+        return 'Steamer';
+      case 'Yacht':
+      case 'Boat':
+      case 'Raft':
+      case 'Dredge':
+      case 'Sailboat':
+        return 'Other';
+    }
   }
   advance() {
 
