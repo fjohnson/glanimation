@@ -56,6 +56,7 @@ map.on('load', async () => {
   cctr.insertAdjacentHTML('afterbegin',aboutDialogButton);
   webpackExports.createCalendar(document.getElementById("calendar-dialog"));
   webpackExports.createAboutDialog(document.getElementById("about-dialog"));
+  webpackExports.createSlider(document.getElementById("slider-container"));
 
   const tbtn = document.getElementById('terrain-btn');
   tbtn.addEventListener("click", ()=>{
@@ -83,7 +84,8 @@ map.on('load', async () => {
     vessel['Date'] = dayjs(vessel['Date']);
   }
   let puppeteer = new PuppetMaster(data, map);
-  webpackExports.callbackContainer.push(puppeteer);
+  webpackExports.callbackContainer[0]=puppeteer;
+  webpackExports.sliderCBContainer[0]=puppeteer;
 
   const pauseButton = document.getElementById('pause-btn');
   const restartButton = document.getElementById('restart-btn')
@@ -110,10 +112,12 @@ map.on('load', async () => {
       puppeteer.pause();
       html = '<i class="fa-solid fa-play"></i>';
       pauseButton.setAttribute('title','Play');
+      webpackExports.sliderSetters[1](false);
     } else {
       puppeteer.play();
       html = '<i class="fa-solid fa-pause"></i>';
       pauseButton.setAttribute('title','Pause');
+      webpackExports.sliderSetters[1](true);
     }
     pauseButton.replaceChildren();
     pauseButton.insertAdjacentHTML('beforeend',html);
@@ -122,9 +126,8 @@ map.on('load', async () => {
   restartButton.addEventListener('click', ()=>{
     puppeteer.die();
     puppeteer = new PuppetMaster(data, map);
-    webpackExports.callbackContainer.pop();
-    webpackExports.callbackContainer.push(puppeteer);
-
+    webpackExports.callbackContainer[0] = puppeteer
+    webpackExports.sliderCBContainer[0] = puppeteer
     if(pauseButton.getAttribute('title')==='Play'){
       //If the button is paused on restart, change its state to playing
       pauseButton.click();

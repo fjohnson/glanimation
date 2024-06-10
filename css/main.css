@@ -267,10 +267,58 @@ body { margin: 0; padding: 0; }
   width:28em !important;
 }
 
-#date-slider {
-  display: none;
-}
 /*End React based calendar styles*/
+
+/*React based slider styles*/
+#date-slider {
+  margin-left: 20px;
+  padding: 25px;
+  display: flex;
+  flex-direction: row;
+  border: #213547;
+  border-radius: 10px;
+  align-items: center;
+  background-color: #ffffff;
+  width:40vw;
+}
+
+#slider-year {
+  padding: 0;
+  margin: 0;
+  align-self: center;
+}
+#slider-date {
+  margin: 0;
+  width: max-content;
+}
+
+#slider-date-container {
+  border-right: #213547;
+  border-right-width: thin;
+  /* border: solid; */
+  border-style: none solid none none;
+  margin-right: 10px;
+  padding-right: 15px;
+  display: flex;
+  flex-direction: column;
+
+  p {
+    margin: 0;
+    font-family:  "Nunito Sans","Segoe UI Semibold", sans-serif;
+    font-weight:700;
+    text-rendering: optimizeLegibility;
+    font-size: large;
+  }
+}
+
+#slider-container {
+  /*border: 2px solid #213547;*/
+  position: absolute;
+  bottom:7%;
+  left:27%;
+}
+
+/*End React based slider styles*/
 
 #date-selector {
   display:none;
