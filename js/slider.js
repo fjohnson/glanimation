@@ -45,7 +45,7 @@ for(let [year,months] of timeLine){
       }
       marks.push({
         value: v++,
-        label: mark
+        label: '1854 -'
       });
       marks.push({
         value: v++,
@@ -99,11 +99,23 @@ for(let [year,months] of timeLine){
         indexToDate[v+i] = startDate
         startDate = startDate.add(1,'week');
       }
+      if(year===1875 && mark ==='May -'){
+        marks.push({
+          value: v++,
+          label: '1875 -'
+        });
+      }else if(year===1882 && mark ==='April -'){
+        marks.push({
+          value: v++,
+          label: '1882 -'
+        });
+      }else{
+        marks.push({
+          value: v++,
+          label: mark
+        });
+      }
 
-      marks.push({
-        value: v++,
-        label: mark
-      });
       marks.push({
         value: v++,
         label: ''
