@@ -59,7 +59,7 @@ export class PuppetMaster {
     for(let [vessel,speed] of this.#vesselSpeeds){
       this.#vesselSpacing[vessel] = this.setVesselSpacing(speed);
     }
-    this.preComputeElongatedPaths();
+    // this.preComputeElongatedPaths();
 
   }
 
@@ -172,10 +172,28 @@ export class PuppetMaster {
 
     let elongated_coords = [];
     let from = coords[0];
+    let lockpoly = turf.polygon([[
+      [-79.219,43.221],
+      [-79.2598,42.8823],
+      [-79.2259,42.8762],
+      [-79.16,43.215],
+      [-79.219,43.221]
+    ]])
+    let originalSeg = segmentSize;
 
     for(let k =1; k< coords.length; k++){
       let to = coords[k];
       let distance = turf.distance(turf.point(from), turf.point(to));
+
+      //Slow down passage in the canal so that it takes two days to cross
+      //the passage is aprox 38MK, so we want to move 19KM/h. This equals aprox
+      //.19KM/it if a day is 100 it
+      let toWithin = turf.pointsWithinPolygon(turf.points([to]), lockpoly)
+      if(toWithin.features.length){
+        segmentSize = (19/24)/(this.#dayDelay/24);
+      }else{
+        segmentSize = originalSeg;
+      }
 
       if(distance > segmentSize){
         let remaining_distance = distance;

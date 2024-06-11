@@ -65,7 +65,7 @@ for(let [year,months] of timeLine){
       indexToDate[v] = dayjs(new Date(1854,11,1));
       marks.push({
         value: v++,
-        label: mark
+        label: ''
       });
       indexToDate[v] = indexToDate[v-1].add(1,'week');
       marks.push({
@@ -78,7 +78,7 @@ for(let [year,months] of timeLine){
       indexToDate[v] = dayjs(new Date(1875,11,1));
       marks.push({
         value: v++,
-        label: mark
+        label: ''
       });
       indexToDate[v] = indexToDate[v-1].add(1,'week');
       marks.push({
@@ -112,7 +112,7 @@ for(let [year,months] of timeLine){
       }else{
         marks.push({
           value: v++,
-          label: mark
+          label: ''
         });
       }
 
