@@ -87,7 +87,7 @@ map.on('load', async () => {
     vessel['Date'] = dayjs(vessel['Date']);
   }
   let puppeteer = new PuppetMaster(data, map);
-  webpackExports.callbackContainer[0]=puppeteer;
+  webpackExports.calendarCBContainer[0]=puppeteer;
   webpackExports.sliderCBContainer[0]=puppeteer;
 
   const pauseButton = document.getElementById('pause-btn');
@@ -115,12 +115,12 @@ map.on('load', async () => {
       puppeteer.pause();
       html = '<i class="fa-solid fa-play"></i>';
       pauseButton.setAttribute('title','Play');
-      webpackExports.sliderSetters[1](false);
+      webpackExports.sliderSetters.setPause(false);
     } else {
       puppeteer.play();
       html = '<i class="fa-solid fa-pause"></i>';
       pauseButton.setAttribute('title','Pause');
-      webpackExports.sliderSetters[1](true);
+      webpackExports.sliderSetters.setPause(true);
     }
     pauseButton.replaceChildren();
     pauseButton.insertAdjacentHTML('beforeend',html);
@@ -129,7 +129,7 @@ map.on('load', async () => {
   restartButton.addEventListener('click', ()=>{
     puppeteer.die();
     puppeteer = new PuppetMaster(data, map);
-    webpackExports.callbackContainer[0] = puppeteer
+    webpackExports.calendarCBContainer[0] = puppeteer
     webpackExports.sliderCBContainer[0] = puppeteer
     if(pauseButton.getAttribute('title')==='Play'){
       //If the button is paused on restart, change its state to playing

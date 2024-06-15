@@ -14,7 +14,9 @@ import {createRoot} from "react-dom/client";
 import * as dayjs from 'dayjs';
 
 export const sliderCBContainer = [];
-export const sliderSetters = [];
+export const sliderSetters = {};
+export const indexToDate = {};
+
 export function createSlider(parent){
   createRoot(parent).render(<TimelineSlider/>);
 }
@@ -32,7 +34,6 @@ const timeLine = [
 ]
 const marks = [];
 let v=0;
-const indexToDate = {};
 for(let [year,months] of timeLine){
   for(let mark of months){
 
@@ -61,26 +62,16 @@ for(let [year,months] of timeLine){
       });
     }
     else if(year === 1854 && mark === 'Dec -'){
-      //Last date for 1854 is Dec 12, so only allow up to Dec 8th selection on the slider
+      //Last date for 1854 is Dec 2
       indexToDate[v] = dayjs(new Date(1854,11,1));
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      indexToDate[v] = indexToDate[v-1].add(1,'week');
       marks.push({
         value: v++,
         label: ''
       });
     }
     else if(year === 1875 && mark === 'Dec -'){
-      //Last date is Dec 17
+      //Last date is Dec 9
       indexToDate[v] = dayjs(new Date(1875,11,1));
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      indexToDate[v] = indexToDate[v-1].add(1,'week');
       marks.push({
         value: v++,
         label: ''
@@ -131,6 +122,7 @@ for(let [year,months] of timeLine){
     }
   }
 }
+
 function valuetext(value) {
   return `${value}`;
 }
@@ -141,13 +133,13 @@ export function TimelineSlider() {
   const [sliderVal, setSlider] = useState(0);
   const [isPaused, setPause] = useState(true);
 
-  sliderSetters[0] = setSlider;
-  sliderSetters[1] = setPause;
+  sliderSetters.setSlider = setSlider;
+  sliderSetters.setPause = setPause;
 
   function sliderChangeCB(event, value, activeThumb){
     if(activeThumb===undefined){
       const puppetMaster = sliderCBContainer[0];
-      //puppetMaster
+      puppetMaster.changeDateSlider(indexToDate[value])
     }
     setSlider(value);
   }

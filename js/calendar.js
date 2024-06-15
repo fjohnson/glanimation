@@ -5,7 +5,11 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import {createRoot} from "react-dom/client";
 import { useRef } from 'react';
-export const callbackContainer = [];
+import * as dayjs from 'dayjs';
+
+export const calendarCBContainer = [];
+export const calenderSetters = {}
+
 export function createCalendar(parent){
     createRoot(parent).render(<CalendarDialog/>);
 }
@@ -18,20 +22,28 @@ export function CalendarDialog(){
   });
 
   function handleClickOpen(){
-    let puppetMaster = callbackContainer[0];
-    puppetMaster.pause();
+    let puppetMaster = calendarCBContainer[0];
+    const pauseButton = document.getElementById('pause-btn');
+    if(pauseButton.getAttribute('title')==='Pause'){
+      pauseButton.click();
+    }else{
+      puppetMaster.pause();
+    }
     setOpen(true);
   }
 
   function handleClose(){
-    let puppetMaster = callbackContainer[0];
-    puppetMaster.changeDate({
-      startDate: ref.current.selected[0],
-      endDate: ref.current.selected[1]
+    let puppetMaster = calendarCBContainer[0];
+    puppetMaster.changeDateCalendar({
+      startDate: dayjs(ref.current.selected[0]),
+      endDate: dayjs(ref.current.selected[1])
     });
     setOpen(false);
   }
+
   const [value, setValue] = useState(ref.current.selected);
+  calenderSetters.setValue = setValue;
+
   function onChange(nextValue){
     const endDate = nextValue[1];
     const noTime = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());

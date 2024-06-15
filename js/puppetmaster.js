@@ -551,8 +551,8 @@ export class PuppetMaster {
     if(this.#date.isSame(dayjs('1854-12-12'))){
       this.pause();
       this.changeDate({
-        "startDate": new Date(1875, 4, 4),
-        "endDate": new Date(1875, 4, 4)
+        "startDate": dayjs('1875-4-4'),
+        "endDate": dayjs('1875-4-4')
       });
       this.updateLegend(this.#date.year());
 
@@ -560,12 +560,15 @@ export class PuppetMaster {
     else if(this.#date.isSame(dayjs('1875-12-17'))){
       this.pause();
       this.changeDate({
-        "startDate": new Date(1882,3,20),
-        "endDate": new Date(1882,3,20),
+        "startDate": dayjs('1882-3,20'),
+        "endDate": dayjs('1882-3,20'),
       });
       this.updateLegend(this.#date.year());
     }
     else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
+      let fidx = this.dateToSliderIndex(this.#date);
+      const sliderSetter = webpackExports.sliderSetters.setSlider;
+      sliderSetter(fidx);
       document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
       if(this.#pauseDate?.isSame(this.#date)){
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
@@ -699,20 +702,23 @@ export class PuppetMaster {
       this.#popup.remove();
     }
 
-    this.#curIndex = 0;
+    this.#curIndex = -1;
 
-    for(let manifestEntry of this.#manifest){
-      if(manifestEntry.Date.month() >= dateRange.startDate.getMonth()
-         && manifestEntry.Date.year() >= dateRange.startDate.getFullYear()
-         && manifestEntry.Date.date() >= dateRange.startDate.getDate()){
+    for(let [i, manifestEntry] of this.#manifest.entries()){
+      if(manifestEntry.Date.isSame(dateRange.startDate) || manifestEntry.Date.isAfter(dateRange.startDate)){
+        this.#curIndex = i;
         break;
-      }
-      else{
-        this.#curIndex++;
       }
     }
 
-    this.#date = dayjs(dateRange.startDate);
+    if(this.#curIndex === -1){
+      //This should never happen
+      console.error('Date selected beyond any available manifest entry.');
+      //Pick a sane default then
+      this.#curIndex = this.#manifest[this.#manifest.length-1];
+    }
+
+    this.#date = dateRange.startDate;
     //need to add vessels here, otherwise they get added in animate() when the next day happens
     //which makes the animation look like its lagging. Same applies to setting the date.
     this.addVessels();
@@ -731,12 +737,55 @@ export class PuppetMaster {
 
     this.#animateIterations = 0;
     //pause the animation if a range with an enddate is provided. pause at the enddate+1.
-    this.#pauseDate = !dayjs(dateRange.startDate).isSame(dayjs(dateRange.endDate)) ?
-                       dayjs(dateRange.endDate).add(1, 'day') : null;
+    this.#pauseDate = !dateRange.startDate.isSame(dateRange.endDate) ?
+                       dateRange.endDate.add(1, 'day') : null;
 
     //Do this to maintain proper pause-btn display/state
-    const pauseButton = document.getElementById("pause-btn");
-    pauseButton.click();
+    // const pauseButton = document.getElementById("pause-btn");
+    // pauseButton.click();
+
+  }
+
+  dateToSliderIndex(date){
+    const indexToDate = webpackExports.indexToDate;
+    for(let [i,dayjsObj] of Object.entries(indexToDate)){
+      let fidx = null;
+
+      if(date.isAfter('1882-Nov-22')){
+        let indices = Object.keys(indexToDate);
+        fidx = parseInt(indices.at(-1));
+      }
+      else if(dayjsObj.isSame(date)){
+        fidx = parseInt(i);
+      }
+      else if(dayjsObj.isAfter(date)){
+        fidx = parseInt(i-1);
+      }
+      if(fidx !== null){
+        return fidx;
+      }
+    }
+  }
+
+  changeDateCalendar(dateRange){
+    const sliderSetter = webpackExports.sliderSetters.setSlider;
+    const startDate = dateRange.startDate;
+    const fidx = this.dateToSliderIndex(startDate);
+    if(fidx !== undefined){
+      sliderSetter(fidx);
+      this.changeDate(dateRange);
+    }
+  }
+
+  changeDateSlider(date){
+    const calendarSetter = webpackExports.calenderSetters.setValue;
+    const endDate = date.toDate();
+    endDate.setHours(23,59,59);
+    calendarSetter([date.toDate(), endDate]);
+    this.changeDate({
+      startDate: date,
+      endDate: date
+    });
   }
 
   updateLegend(year){
