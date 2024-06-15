@@ -152,14 +152,9 @@ export class PuppetMaster {
         else{
           this.#completedPrecompute = true;
           this.#routeMap = newRouteMap;
-          performance.mark('Precompute end');
-          const duration = performance.measure('Precompute').duration.toFixed(2);
-          performance.clearMarks();
-          console.log(`Path precompute completed in ${duration} ms`);
         }
       }
     };
-    performance.mark('Precompute start');
     pathWorker.postMessage([this.#vesselSpacing, currentYear, getSlice(0,ncount)])
   }
 
@@ -740,10 +735,6 @@ export class PuppetMaster {
     this.#pauseDate = !dateRange.startDate.isSame(dateRange.endDate) ?
                        dateRange.endDate.add(1, 'day') : null;
 
-    //Do this to maintain proper pause-btn display/state
-    // const pauseButton = document.getElementById("pause-btn");
-    // pauseButton.click();
-
   }
 
   dateToSliderIndex(date){
@@ -775,6 +766,8 @@ export class PuppetMaster {
       sliderSetter(fidx);
       this.changeDate(dateRange);
     }
+    const pauseButton = document.getElementById("pause-btn");
+    pauseButton.click();
   }
 
   changeDateSlider(date){
@@ -786,6 +779,7 @@ export class PuppetMaster {
       startDate: date,
       endDate: date
     });
+
   }
 
   updateLegend(year){
