@@ -9,6 +9,7 @@ const DEFINED_VESSELS = {
   1882:['Schooner','Propeller','Tug','Scow','Steamer','Other'],
 };
 let DEFINED_SPACING;
+
 function elongatePaths(coords, segmentSize){
   //A function for addition additional points along a precomputed shortest path from start->end
   //This is used because the animation draws a point for each vessel every x milliseconds
@@ -18,10 +19,28 @@ function elongatePaths(coords, segmentSize){
 
   let elongated_coords = [];
   let from = coords[0];
+  let lockpoly = turf.polygon([[
+    [-79.219,43.221],
+    [-79.2598,42.8823],
+    [-79.2259,42.8762],
+    [-79.16,43.215],
+    [-79.219,43.221]
+  ]])
+  let originalSeg = segmentSize;
 
   for(let k =1; k< coords.length; k++){
     let to = coords[k];
     let distance = turf.distance(turf.point(from), turf.point(to));
+
+    //Slow down passage in the canal so that it takes two days to cross
+    //the passage is aprox 38MK, so we want to move 19KM/h. This equals aprox
+    //.19KM/it if a day is 100 it
+    let toWithin = turf.pointsWithinPolygon(turf.points([to]), lockpoly)
+    if(toWithin.features.length){
+      segmentSize = (19/24)/(this.#dayDelay/24);
+    }else{
+      segmentSize = originalSeg;
+    }
 
     if(distance > segmentSize){
       let remaining_distance = distance;
@@ -44,6 +63,7 @@ function elongatePaths(coords, segmentSize){
   elongated_coords.push(coords[coords.length-1]);
   return {"type": "Feature", "geometry": {"type": "LineString", "coordinates": elongated_coords}};
 }
+
 onmessage = (e) => {
   let year, routes;
   if(!DEFINED_SPACING){

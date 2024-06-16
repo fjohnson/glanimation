@@ -59,7 +59,7 @@ export class PuppetMaster {
     for(let [vessel,speed] of this.#vesselSpeeds){
       this.#vesselSpacing[vessel] = this.setVesselSpacing(speed);
     }
-    // this.preComputeElongatedPaths();
+    this.preComputeElongatedPaths();
 
   }
 
