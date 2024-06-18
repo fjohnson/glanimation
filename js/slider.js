@@ -32,95 +32,26 @@ const timeLine = [
   [1875,['May -','June -','July -','Aug -','Sep -','Oct -','Nov -','Dec -']],
   [1882,['April -','May -','June -','July -','Aug -','Sep -','Oct -','Nov -']]
 ]
-const marks = [];
-let v=0;
-for(let [year,months] of timeLine){
-  for(let mark of months){
-
-    if(year === 1854 && mark === 'April -'){
-      //Animation starts on April 4th and not the first of the month
-      let startDate = dayjs(new Date(year,3,4));
-      for(let i=0; i<4;i++){
-        indexToDate[v+i] = startDate
-        startDate = startDate.add(1,'week');
-      }
-      marks.push({
-        value: v++,
-        label: '1854 -'
-      });
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      marks.push({
-        value: v++,
-        label: ''
-      });
-    }
-    else if(year === 1854 && mark === 'Dec -'){
-      //Last date for 1854 is Dec 2
-      indexToDate[v] = dayjs(new Date(1854,11,1));
-      marks.push({
-        value: v++,
-        label: ''
-      });
-    }
-    else if(year === 1875 && mark === 'Dec -'){
-      //Last date is Dec 9
-      indexToDate[v] = dayjs(new Date(1875,11,1));
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      indexToDate[v] = indexToDate[v-1].add(1,'week');
-      marks.push({
-        value: v++,
-        label: ''
-      });
-    }
-    else{
-
-      //Every other month is 4 weeks. 1882 Ends on Nov 30.
-      let startDate = dayjs(`${year} ${mark.split(' -')[0]} 1`);
-      for(let i=0; i<4;i++){
-        indexToDate[v+i] = startDate
-        startDate = startDate.add(1,'week');
-      }
-      if(year===1875 && mark ==='May -'){
-        marks.push({
-          value: v++,
-          label: '1875 -'
-        });
-      }else if(year===1882 && mark ==='April -'){
-        marks.push({
-          value: v++,
-          label: '1882 -'
-        });
-      }else{
-        marks.push({
-          value: v++,
-          label: ''
-        });
-      }
-
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      marks.push({
-        value: v++,
-        label: ''
-      });
-      marks.push({
-        value: v++,
-        label: ''
-      });
-    }
-  }
+let marks = [
+  {value: 0, label: '1854'},
+  {value: 35, label: '1875'},
+  {value: 67, label: '1882'}
+];
+let i = 0;
+let dateIncrement = dayjs(new Date(1854,3,4));
+while(dateIncrement.isBefore(dayjs(new Date(1854,11,3)))){
+  indexToDate[i++] = dateIncrement;
+  dateIncrement = dateIncrement.add(1,'week');
+}
+dateIncrement = dayjs(new Date(1875,4,4));
+while(dateIncrement.isBefore(new Date(1875,11,10))){
+  indexToDate[i++] = dateIncrement;
+  dateIncrement = dateIncrement.add(1,'week');
+}
+dateIncrement = dayjs(new Date(1882,3,20));
+while(dateIncrement.isBefore(new Date(1882,11,1))){
+  indexToDate[i++] = dateIncrement;
+  dateIncrement = dateIncrement.add(1,'week');
 }
 
 function valuetext(value) {
@@ -152,40 +83,46 @@ export function TimelineSlider() {
       <div id="date-slider">
         <div id="slider-date-container">
           <p id="slider-year" className="tiny5-regular">1854</p>
-          <p id="slider-date" className="tiny5-regular">April 12</p>
+          <p id="slider-date" className="tiny5-regular">Apr 4</p>
         </div>
-        <IconButton
-          aria-label="play-pause-button"
-          color="primary"
-          onClick={buttonCB}
-          disableFocusRipple={true}
-          disableRipple={true}
-          edge={'start'}
-          sx={{
-            color:'black',
-            padding:'16px'
-          }}
+        <Box
+          sx={{ width: "100vw" }}
+          display="flex"
+          alignItems="center"
+          gap={2}
         >
-          {!isPaused ? <PlayArrowIcon className="trz" sx={{ fontSize: 45 }}/>
-                     : <PauseIcon className="trz" sx={{ fontSize: 45 }}/>
-          }
-        </IconButton>
-        <Box sx={{ width: "70vw"}}>
+          <IconButton
+            aria-label="play-pause-button"
+            color="primary"
+            onClick={buttonCB}
+            disableFocusRipple={true}
+            disableRipple={true}
+            edge={'start'}
+            sx={{
+              color:'black',
+
+            }}
+          >
+            {!isPaused ? <PlayArrowIcon className="trz" sx={{ fontSize: 45 }}/>
+              : <PauseIcon className="trz" sx={{ fontSize: 45 }}/>
+            }
+          </IconButton>
           <Slider
             aria-label="Restricted values"
             getAriaValueText={valuetext}
-            step={null}
+            step={1}
             marks={marks}
             onChangeCommitted={sliderChangeCB}
             onChange={sliderChangeCB}
             value={sliderVal}
             valueLabelFormat={displayLabel}
             valueLabelDisplay="auto"
+            max={99}
             css={css`
               color: #0a3c5f;
               .MuiSlider-markLabel{
-                transform: translateX(-50%) translateY(5px) rotate(-90deg);
                 font-weight: 700;
+                font-size: clamp(.7rem,.75vw,.85rem);
               }
               .MuiSlider-valueLabel{
                 color: white;

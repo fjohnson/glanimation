@@ -155,7 +155,7 @@ export class PuppetMaster {
         }
       }
     };
-    pathWorker.postMessage([this.#vesselSpacing, currentYear, getSlice(0,ncount)])
+    pathWorker.postMessage([this.#vesselSpacing, this.#dayDelay, currentYear, getSlice(0,ncount)]);
   }
 
   elongatePaths(coords, segmentSize){
@@ -561,9 +561,14 @@ export class PuppetMaster {
       this.updateLegend(this.#date.year());
     }
     else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
-      let fidx = this.dateToSliderIndex(this.#date);
-      const sliderSetter = webpackExports.sliderSetters.setSlider;
-      sliderSetter(fidx);
+      if(!document.getElementsByClassName('MuiSlider-dragging').length){
+        //Check to see if the slider has this class applied to it, which happens when a user is dragging the
+        //slider thumb. If the user is dragging the thumb, don't update the slider position at the same time.
+        let fidx = this.dateToSliderIndex(this.#date);
+        const sliderSetter = webpackExports.sliderSetters.setSlider;
+        sliderSetter(fidx);
+        this.updateSliderDateLabel();
+      }
       document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
       if(this.#pauseDate?.isSame(this.#date)){
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
@@ -572,6 +577,7 @@ export class PuppetMaster {
       this.#date = this.#date.add(1, 'day');
     }
   }
+
   animate(delay){
     return setInterval(()=>{
       this.advancePuppets();
@@ -598,6 +604,7 @@ export class PuppetMaster {
 
     }, delay);
   }
+
   advancePuppets(){
     const mapSrc = this.#map.getSource(this.#puppetLayerName);
 
@@ -719,6 +726,7 @@ export class PuppetMaster {
     this.addVessels();
     document.getElementById('date').innerText = this.#date.format('MMMM D YYYY');
     this.updateLegend(this.#date.year());
+    this.updateSliderDateLabel();
     //need to also clear any puppets on the map because this only happens in advancePuppets()
     //if there are puppets to show. If this line wasn't here, then when a date is switched to
     //that doesn't have any puppets to show, the existing layer is not cleared and any previous
@@ -780,6 +788,11 @@ export class PuppetMaster {
       endDate: date
     });
 
+  }
+
+  updateSliderDateLabel(){
+    document.getElementById("slider-year").innerText = this.#date.format('YYYY');
+    document.getElementById("slider-date").innerText = this.#date.format('MMM D');
   }
 
   updateLegend(year){

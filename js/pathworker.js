@@ -9,7 +9,7 @@ const DEFINED_VESSELS = {
   1882:['Schooner','Propeller','Tug','Scow','Steamer','Other'],
 };
 let DEFINED_SPACING;
-
+let DAY_DELAY;
 function elongatePaths(coords, segmentSize){
   //A function for addition additional points along a precomputed shortest path from start->end
   //This is used because the animation draws a point for each vessel every x milliseconds
@@ -37,7 +37,7 @@ function elongatePaths(coords, segmentSize){
     //.19KM/it if a day is 100 it
     let toWithin = turf.pointsWithinPolygon(turf.points([to]), lockpoly)
     if(toWithin.features.length){
-      segmentSize = (19/24)/(this.#dayDelay/24);
+      segmentSize = (19/24)/(DAY_DELAY/24);
     }else{
       segmentSize = originalSeg;
     }
@@ -67,7 +67,7 @@ function elongatePaths(coords, segmentSize){
 onmessage = (e) => {
   let year, routes;
   if(!DEFINED_SPACING){
-    [DEFINED_SPACING,year,routes] = e.data;
+    [DEFINED_SPACING,DAY_DELAY,year,routes] = e.data;
   }else{
     [year,routes] = e.data;
   }

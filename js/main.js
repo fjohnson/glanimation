@@ -19,7 +19,7 @@ map.on('load', async () => {
   el.innerHTML = "<p>LOCK 3</p><div class='mapboxgl-popup-tip'></div>";
   const wellandCanalMarker = new mapboxgl.Marker(el,{"anchor":"right"});
   wellandCanalMarker.setLngLat([-79.243,43.154]).addTo(map)
-  .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
+  // .setPopup(new mapboxgl.Popup({maxWidth:'none'}).setHTML("<p>Todo</p>"))
 
   //Alternative way of setting up the LOCK 3 marker but using a popup. Drawback is that it
   //has no option for being clickable and spawning its own popup. Need to implement that if

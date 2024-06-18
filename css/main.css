@@ -63,22 +63,13 @@ body { margin: 0; padding: 0; }
   }
 }
 
-.glassmorphism {
-  /* From https://css.glass */
-  /*background: rgba(255, 255, 255, 0);*/
-  border-radius: 16px;
-  /*box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);*/
-  backdrop-filter: blur(1.5px);
-  -webkit-backdrop-filter: blur(1.5px);
-  /*border: 1px solid rgba(255, 255, 255, 0.3);*/
-}
-
 #legend-container {
   position: absolute;
   bottom:5%;
   right:0;
   width:clamp(134px,12vw,230px);
-  margin:10px;
+  margin-left: 10px;
+  margin-right: 10px;
   padding:1.3rem;
 
   display: grid;
@@ -241,7 +232,7 @@ body { margin: 0; padding: 0; }
 #about-content {
   padding: 1rem 1rem 1rem 1rem;
   font-family: "Nunito Sans", "Segoe UI Semibold", sans-serif;
-  font-size:1.1rem;
+  font-size:1rem;
   font-weight: 500;
 }
 #about-author {
@@ -270,16 +261,33 @@ body { margin: 0; padding: 0; }
 /*End React based calendar styles*/
 
 /*React based slider styles*/
+#slider-container {
+  /*border: 2px solid #213547;*/
+  position: absolute;
+  bottom:5%;
+  left:28.5%;
+  @media (max-width: 950px){
+    left: 10%;
+  }
+  @media (max-width: 750px){
+    left: 0%;
+  }
+}
 #date-slider {
   margin-left: 20px;
-  padding: 15px;
+  padding: 0 10px 0 10px;
   display: flex;
   flex-direction: row;
   border: #213547;
   border-radius: 10px;
   align-items: center;
   background-color: #ffffff;
-  width:40vw;
+  width:clamp(300px,45vw,900px);
+
+  @media(max-width:950px){
+    width: 60vw;
+  }
+
 }
 
 #slider-year {
@@ -307,15 +315,8 @@ body { margin: 0; padding: 0; }
     font-family:  "Nunito Sans","Segoe UI Semibold", sans-serif;
     font-weight:700;
     text-rendering: optimizeLegibility;
-    font-size: large;
+    font-size: clamp(.6rem,1rem,1rem);
   }
-}
-
-#slider-container {
-  /*border: 2px solid #213547;*/
-  position: absolute;
-  bottom:9%;
-  left:27%;
 }
 
 /*End React based slider styles*/
