@@ -542,20 +542,20 @@ export class PuppetMaster {
   }
 
   incrementDate(){
-    if(this.#date.isSame(dayjs('1854-12-12'))){
+    if(this.#date.isSame(dayjs('1854-12-7'))){
       this.pause();
       this.changeDate({
-        "startDate": dayjs('1875-4-2'),
-        "endDate": dayjs('1875-4-2')
+        "startDate": dayjs('1875-5-4'),
+        "endDate": dayjs('1875-5-4')
       });
       this.updateLegend(this.#date.year());
       this.play();
     }
-    else if(this.#date.isSame(dayjs('1875-12-17'))){
+    else if(this.#date.isSame(dayjs('1875-12-13'))){
       this.pause();
       this.changeDate({
-        "startDate": dayjs('1882-3,20'),
-        "endDate": dayjs('1882-3,20'),
+        "startDate": dayjs('1882-4,20'),
+        "endDate": dayjs('1882-4,20'),
       });
       this.updateLegend(this.#date.year());
       this.play();
