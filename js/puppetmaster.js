@@ -261,7 +261,6 @@ export class PuppetMaster {
 
     let vesselType = Puppet.getVesselType(vesselInfo);
     let spacing = this.#vesselSpacing[vesselType];
-    if(spacing === undefined) spacing = 0.5; // sane default
 
     const yearNow = this.#date.year();
     const feature = this.#completedPrecompute ?
