@@ -17,8 +17,8 @@ export function createCalendar(parent){
 export function CalendarDialog(){
   const [open, setOpen] = useState(false);
   let ref = useRef({
-    selected: [new Date(1854, 3, 12),new Date(1854, 3, 12)],
-    displayMonth: new Date(1854, 3, 12)
+    selected: [new Date(1854, 3, 3),new Date(1854, 3, 3)],
+    displayMonth: new Date(1854, 3, 3)
   });
 
   function handleClickOpen(){
@@ -58,11 +58,11 @@ export function CalendarDialog(){
     const year = date.getFullYear();
     const day = date.getDate();
     if(view === 'month'){
-      return !((year === 1854 && month === 3 && day >= 4) ||
+      return !((year === 1854 && month === 3 && day >= 3) ||
                (year === 1854 && month >3 && month < 11) ||
                (year === 1854 && month === 11 && day <= 2) ||
 
-               (year === 1875 && month === 4 && day >= 4)   ||
+               (year === 1875 && month === 4 && day >= 2)   ||
                (year === 1875 && month >4 && month < 11) ||
                (year === 1875 && month === 11 && day <= 9) ||
 
@@ -98,7 +98,7 @@ export function CalendarDialog(){
                   value={value}
                   defaultActiveStartDate={ref.current.displayMonth}
                   maxDate={new Date(1882,11, 31)}
-                  minDate={new Date(1854,3,4)}
+                  minDate={new Date(1854,3,3)}
                   selectRange={true}
                   tileDisabled={isInvalidDate}
         />

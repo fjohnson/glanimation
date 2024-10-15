@@ -546,11 +546,11 @@ export class PuppetMaster {
     if(this.#date.isSame(dayjs('1854-12-12'))){
       this.pause();
       this.changeDate({
-        "startDate": dayjs('1875-4-4'),
-        "endDate": dayjs('1875-4-4')
+        "startDate": dayjs('1875-4-2'),
+        "endDate": dayjs('1875-4-2')
       });
       this.updateLegend(this.#date.year());
-
+      this.play();
     }
     else if(this.#date.isSame(dayjs('1875-12-17'))){
       this.pause();
@@ -559,6 +559,7 @@ export class PuppetMaster {
         "endDate": dayjs('1882-3,20'),
       });
       this.updateLegend(this.#date.year());
+      this.play();
     }
     else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
       if(!document.getElementsByClassName('MuiSlider-dragging').length){

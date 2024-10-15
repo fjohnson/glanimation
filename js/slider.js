@@ -38,12 +38,12 @@ let marks = [
   {value: 67, label: '1882'}
 ];
 let i = 0;
-let dateIncrement = dayjs(new Date(1854,3,4));
+let dateIncrement = dayjs(new Date(1854,3,3));
 while(dateIncrement.isBefore(dayjs(new Date(1854,11,3)))){
   indexToDate[i++] = dateIncrement;
   dateIncrement = dateIncrement.add(1,'week');
 }
-dateIncrement = dayjs(new Date(1875,4,4));
+dateIncrement = dayjs(new Date(1875,4,2));
 while(dateIncrement.isBefore(new Date(1875,11,10))){
   indexToDate[i++] = dateIncrement;
   dateIncrement = dateIncrement.add(1,'week');
