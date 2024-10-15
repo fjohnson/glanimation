@@ -70,7 +70,7 @@ export class PuppetMaster {
     * This is X it(iterations)/day. From this we have Y it/hr.
     * Units of spacing are in km/it
     * Desired speed - call this 'D' - is then: D km/hr = Y it/hr * S km/it
-    * However since speeds are defined in mph, we convert the final answer to mph.
+    * However since speeds are defined in mph, we convert the final answer to kmh.
     *
     * - Example calculation 200it/day = 8.33 it/hr. Desired vessel speed is 10km/hr.
     * - Answer is 10km/hr = 8.33 it/hr * x km/it; x = 1.2
@@ -181,11 +181,11 @@ export class PuppetMaster {
       let distance = turf.distance(turf.point(from), turf.point(to));
 
       //Slow down passage in the canal so that it takes two days to cross
-      //the passage is aprox 38MK, so we want to move 19KM/h. This equals aprox
+      //the passage is aprox 38KM and the goal is 19KM/day. This equals aprox
       //.19KM/it if a day is 100 it
       let toWithin = turf.pointsWithinPolygon(turf.points([to]), lockpoly)
       if(toWithin.features.length){
-        segmentSize = (19/24)/(this.#dayDelay/24);
+        segmentSize = 38/(this.#dayDelay*2);
       }else{
         segmentSize = originalSeg;
       }

@@ -33,11 +33,11 @@ function elongatePaths(coords, segmentSize){
     let distance = turf.distance(turf.point(from), turf.point(to));
 
     //Slow down passage in the canal so that it takes two days to cross
-    //the passage is aprox 38MK, so we want to move 19KM/h. This equals aprox
+    //the passage is aprox 38KM, so we want to move 19KM/h. This equals aprox
     //.19KM/it if a day is 100 it
     let toWithin = turf.pointsWithinPolygon(turf.points([to]), lockpoly)
     if(toWithin.features.length){
-      segmentSize = (19/24)/(DAY_DELAY/24);
+      segmentSize = 38/(DAY_DELAY*2);
     }else{
       segmentSize = originalSeg;
     }
