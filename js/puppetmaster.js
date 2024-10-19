@@ -6,7 +6,7 @@ export class PuppetMaster {
   #date;
   #puppets = [];
   #curIndex = 0;
-  #dayDelay = 100;
+  #dayDelay = 120;
   #listCleaner;
   #finalDate;
   #listenerList = [];
@@ -37,9 +37,9 @@ export class PuppetMaster {
 
   constructor(data, map) {
 
-    this.#date = data.manifest[0].Date;
+    this.#date = this.getNoHours(data.manifest[0].Date);
     this.#manifest = data.manifest;
-    this.#finalDate = data.manifest[data.manifest.length-1].Date;
+    this.#finalDate = this.getNoHours(data.manifest[data.manifest.length-1].Date);
     this.#map = map;
     this.#popup = this.setupPopup();
     this.addPositionLayer(this.#puppetLayerName);
@@ -61,6 +61,13 @@ export class PuppetMaster {
     }
     this.preComputeElongatedPaths();
 
+  }
+
+  getNoHours(dateObj){
+    const year = dateObj.get('year');
+    const month = dateObj.get('month');
+    const date = dateObj.get('date');
+    return dayjs().set('year',year).set('month',month).set('date',date).set('hour', 0).set('minute', 0).set('second', 0);
   }
 
   setVesselSpacing(mph){
@@ -502,8 +509,9 @@ export class PuppetMaster {
       * vessels, an offset is determined for use (next coordinate in their path). Thus, 12 vessels starting
       * from the same location will end up looking like a line instead of a single dot.*/
 
+
       let collisionMap = new Map();
-      while ((this.#curIndex < this.#manifest.length) && this.#manifest[this.#curIndex].Date.isSame(this.#date)) {
+      while ((this.#curIndex < this.#manifest.length) && (this.#manifest[this.#curIndex].Date.isSame(this.#date, 'hour'))) {
         const vesselInfo = this.#manifest[this.#curIndex];
         const puppet = this.addPuppet(vesselInfo);
         const from = vesselInfo['Where From'];
@@ -542,7 +550,8 @@ export class PuppetMaster {
   }
 
   incrementDate(){
-    if(this.#date.isSame(dayjs('1854-12-7'))){
+
+    if(this.#date.isSame(dayjs('1854-12-7','date'))){
       this.pause();
       this.changeDate({
         "startDate": dayjs('1875-5-4'),
@@ -551,16 +560,16 @@ export class PuppetMaster {
       this.updateLegend(this.#date.year());
       this.play();
     }
-    else if(this.#date.isSame(dayjs('1875-12-13'))){
+    else if(this.#date.isSame(dayjs('1875-12-13','date'))){
       this.pause();
       this.changeDate({
-        "startDate": dayjs('1882-4,20'),
-        "endDate": dayjs('1882-4,20'),
+        "startDate": dayjs('1882-4-20'),
+        "endDate": dayjs('1882-4-20'),
       });
       this.updateLegend(this.#date.year());
       this.play();
     }
-    else if (!this.#date.isSame(this.#finalDate.add(1,'day'))) {
+    else{
       if(!document.getElementsByClassName('MuiSlider-dragging').length){
         //Check to see if the slider has this class applied to it, which happens when a user is dragging the
         //slider thumb. If the user is dragging the thumb, don't update the slider position at the same time.
@@ -574,7 +583,6 @@ export class PuppetMaster {
         document.getElementById('pause-btn').dispatchEvent(new Event('click'));
         this.#pauseDate = null;
       }
-      this.#date = this.#date.add(1, 'day');
     }
   }
 
@@ -583,14 +591,20 @@ export class PuppetMaster {
       this.advancePuppets();
 
       //Increase the day and add more vessels after
-      //#dayDelay movements of puppets. With a default value of 100
+      //#dayDelay movements of puppets. With a default value of 120
       //and delay set to 20, this means each day is incremented roughly
-      //every two seconds.
+      //every 2.4s
+
       this.#animateIterations++;
-      if(this.#animateIterations===this.#dayDelay){
-        this.addVessels();
-        this.incrementDate();
-        this.#animateIterations=0;
+      if(!(this.#animateIterations%5)){
+        if (!this.#date.isSame(this.#finalDate.add(1,'day'),'date')){
+          this.#date = this.#date.add(1,'hour');
+          this.addVessels();
+          if(this.#animateIterations===this.#dayDelay){
+            this.incrementDate();
+            this.#animateIterations=0;
+          }
+        }
       }
       if(this.#trackingPuppet){
         if(this.#trackingPuppet.isDone){
@@ -707,7 +721,7 @@ export class PuppetMaster {
     this.#curIndex = -1;
 
     for(let [i, manifestEntry] of this.#manifest.entries()){
-      if(manifestEntry.Date.isSame(dateRange.startDate) || manifestEntry.Date.isAfter(dateRange.startDate)){
+      if(manifestEntry.Date.isSame(dateRange.startDate, 'date') || manifestEntry.Date.isAfter(dateRange.startDate, 'date')){
         this.#curIndex = i;
         break;
       }
@@ -735,8 +749,9 @@ export class PuppetMaster {
       "type": "FeatureCollection",
       "features": []
     });
+
     //Do this as this.#date points to current date+1
-    this.#date = this.#date.add(1, 'day');
+    // this.#date = this.#date.add(1, 'day');
 
     this.#animateIterations = 0;
     //pause the animation if a range with an enddate is provided. pause at the enddate+1.
@@ -754,10 +769,10 @@ export class PuppetMaster {
         let indices = Object.keys(indexToDate);
         fidx = parseInt(indices.at(-1));
       }
-      else if(dayjsObj.isSame(date)){
+      else if(dayjsObj.isSame(date,'date')){
         fidx = parseInt(i);
       }
-      else if(dayjsObj.isAfter(date)){
+      else if(dayjsObj.isAfter(date,'date')){
         fidx = parseInt(i-1);
       }
       if(fidx !== null){
