@@ -281,7 +281,9 @@ export class PuppetMaster {
 
   getCompletionDate(puppet){
     const numDays = Math.floor(puppet.numPositions / this.#dayDelay );
-    return [numDays, puppet.vesselInfo.Date.add(numDays,'day').format('MMM DD YYYY')];
+    const hours = ((puppet.numPositions % this.#dayDelay) / this.#dayDelay) * 24;
+    const completionDate = puppet.vesselInfo.Date.add(numDays,'day').add(hours,'hour');
+    return [numDays, completionDate.format(`MMM DD YYYY`)];
 }
 
   findPuppet(mouseCoord){
