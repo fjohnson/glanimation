@@ -4,7 +4,7 @@ This is a prototype for animating historical voyages through the Welland Lock in
 ### Description of files
 geo.ipynb - A Jupyter notebook for converting historical shipping data into two separate outputs as described below. This notebook requires two files:
 
- -  *'1854 WCR 2023.csv'* -  CSV conversion from the same spreadsheet 
+ -  *'1854 1875 1882 WCR.csv'* -  CSV conversion from the same spreadsheet 
  -  *water_paths.json* - The QGIS geojson conversion (with certain paths removed) of the following source https://www.arcgis.com/home/item.html?id=a4940deebec84fb9b6afa65afcbf891d#overview
 
 After running the notebook the output should be placed in data/. Here is a description of what should be in data/
